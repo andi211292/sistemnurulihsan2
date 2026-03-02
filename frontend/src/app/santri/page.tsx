@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import * as XLSX from "xlsx";
 
 interface Student {
     student_id: number;
@@ -86,39 +87,17 @@ export default function SantriPage() {
         setError(null);
 
         try {
-            const text = await file.text();
-            const lines = text.split('\n').filter(l => l.trim() !== '');
-            if (lines.length < 2) throw new Error("File CSV kosong atau format tidak valid");
+            const formData = new FormData();
+            formData.append("file", file);
 
-            const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-
-            const payload = [];
-            for (let i = 1; i < lines.length; i++) {
-                // simple split assuming no commas inside values
-                const cols = lines[i].split(',').map(c => c.trim());
-                if (cols.length < headers.length) continue;
-
-                let studentObj: any = {};
-                headers.forEach((h, idx) => {
-                    studentObj[h] = cols[idx] === "" ? null : cols[idx];
-                });
-
-                if (studentObj.nis && studentObj.full_name && studentObj.student_class && studentObj.dormitory) {
-                    payload.push(studentObj);
-                }
-            }
-
-            if (payload.length === 0) throw new Error("Tidak ada data valid yang bisa diimport");
-
-            const res = await fetch("http://127.0.0.1:8080/api/students/bulk", {
+            const res = await fetch("http://127.0.0.1:8080/api/students/import_excel", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
+                body: formData
             });
 
             if (!res.ok) {
                 const errData = await res.json();
-                throw new Error(errData.detail || "Gagal import massal CSV");
+                throw new Error(errData.detail || "Gagal import massal Excel");
             }
 
             const resData = await res.json();
@@ -131,6 +110,24 @@ export default function SantriPage() {
             setFormLoading(false);
             if (fileInputRef.current) fileInputRef.current.value = "";
         }
+    };
+
+    const downloadExcelTemplate = () => {
+        const data = [
+            {
+                "NIS": "12345",
+                "Nama Lengkap": "Ahmad Fulan",
+                "Kelas": "7A",
+                "Asrama": "Gedung Baru",
+                "Gender": "PUTRA",
+                "UID_RFID": "KARTU-001"
+            }
+        ];
+
+        const worksheet = XLSX.utils.json_to_sheet(data);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Template Santri");
+        XLSX.writeFile(workbook, "template_import_santri.xlsx");
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -216,15 +213,21 @@ export default function SantriPage() {
                 </div>
                 <div className="flex gap-3">
                     <button
+                        onClick={downloadExcelTemplate}
+                        className="bg-white border border-emerald-600 text-emerald-600 hover:bg-emerald-50 px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
+                    >
+                        📝 Unduh Template Excel
+                    </button>
+                    <button
                         onClick={() => fileInputRef.current?.click()}
                         className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
                         disabled={formLoading}
                     >
-                        {formLoading ? "Memproses CSV..." : "Import CSV"}
+                        {formLoading ? "Memproses Data..." : "📥 Import Excel"}
                     </button>
                     <input
                         type="file"
-                        accept=".csv"
+                        accept=".xlsx, .xls"
                         ref={fileInputRef}
                         onChange={handleFileUpload}
                         className="hidden"

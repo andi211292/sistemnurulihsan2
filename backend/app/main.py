@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List
 from contextlib import asynccontextmanager
@@ -77,6 +77,65 @@ def create_students_bulk(students: List[schemas.StudentCreate], db: Session = De
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=f"Gagal import massal: {str(e)}")
+
+@app.post("/api/students/import_excel", tags=["Students"])
+async def import_students_excel(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    try:
+        content = await file.read()
+        import io
+        import openpyxl
+        
+        wb = openpyxl.load_workbook(io.BytesIO(content), data_only=True)
+        ws = wb.active
+        
+        students_payload = []
+        headers = []
+        for i, row in enumerate(ws.iter_rows(values_only=True)):
+            if i == 0:
+                headers = [str(cell).strip().lower() if cell is not None else '' for cell in row]
+                continue
+                
+            row_dict = {}
+            for j, cell_val in enumerate(row):
+                if j < len(headers) and headers[j]:
+                    val_str = str(cell_val).strip() if cell_val is not None else None
+                    if val_str == "None":
+                       val_str = None
+                    row_dict[headers[j]] = val_str
+                    
+            nis = row_dict.get('nis')
+            full_name = row_dict.get('nama lengkap')
+            student_class = row_dict.get('kelas')
+            dormitory = row_dict.get('asrama')
+            gender = row_dict.get('gender')
+            rfid_uid = row_dict.get('uid_rfid')
+            
+            if nis and full_name and student_class and dormitory:
+                if gender:
+                    gender = gender.upper()
+                    if gender not in ['PUTRA', 'PUTRI']:
+                        gender = 'PUTRA'
+                else:
+                    gender = 'PUTRA'
+                    
+                st = schemas.StudentCreate(
+                    nis=nis,
+                    full_name=full_name,
+                    student_class=student_class,
+                    dormitory=dormitory,
+                    gender=gender,
+                    rfid_uid=rfid_uid
+                )
+                students_payload.append(st)
+                
+        if not students_payload:
+            raise HTTPException(status_code=400, detail="Tidak ada data valid yang bisa diimport. Cek format header Excel.")
+            
+        result = crud.bulk_upsert_students(db=db, students=students_payload)
+        return {"message": "Import massal Excel berhasil", "data": result}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Gagal memproses file Excel: {str(e)}")
 
 @app.delete("/api/students/{student_id}", tags=["Students"])
 def delete_student_api(student_id: int, db: Session = Depends(get_db)):

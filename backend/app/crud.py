@@ -43,6 +43,8 @@ def bulk_upsert_students(db: Session, students: list[schemas.StudentCreate]):
             existing.full_name = st.full_name
             existing.student_class = st.student_class
             existing.dormitory = st.dormitory
+            if hasattr(st, 'gender') and st.gender:
+                existing.gender = st.gender
             if st.rfid_uid:
                 existing.rfid_uid = st.rfid_uid
             count_updated += 1
