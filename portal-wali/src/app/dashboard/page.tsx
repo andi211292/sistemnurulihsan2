@@ -37,6 +37,7 @@ interface StudentLeave {
     start_date: string;
     end_date: string;
     reason: string;
+    is_returned: boolean;
 }
 
 interface TahfidzRecord {
@@ -366,7 +367,7 @@ export default function DashboardPage() {
                                     </div>
                                     <div className="text-right">
                                         <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded ${b.status === "PAID" ? "bg-emerald-100 text-emerald-700" :
-                                                b.status === "PARTIAL" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
+                                            b.status === "PARTIAL" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
                                             }`}>
                                             {b.status === "PAID" ? "Lunas" : b.status === "PARTIAL" ? "Mencicil" : "Belum Bayar"}
                                         </span>
