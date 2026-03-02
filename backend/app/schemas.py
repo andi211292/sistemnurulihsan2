@@ -169,9 +169,6 @@ class BillingResponse(BillingBase):
 class BillingWithStudentResponse(BillingResponse):
     student: StudentResponse
 
-    class Config:
-        from_attributes = True
-
 class AnnouncementResponse(BaseModel):
     announcement_id: int
     title: str

@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from . import models, schemas
 import hashlib
-from typing import Optional
+from typing import Optional, List
 
 def get_user_by_username(db: Session, username: str):
     return db.query(models.User).filter(models.User.username == username).first()
@@ -31,10 +31,10 @@ def create_student(db: Session, student: schemas.StudentCreate):
     db.refresh(db_student)
     return db_student
 
-def bulk_upsert_students(db: Session, students: list[schemas.StudentCreate]):
+def bulk_upsert_students(db: Session, students: List[schemas.StudentCreate]):
     # Upsert logic based on NIS
-    count_inserted = 0
-    count_updated = 0
+    count_inserted: int = 0
+    count_updated: int = 0
     
     for st in students:
         existing = db.query(models.Student).filter(models.Student.nis == st.nis).first()
@@ -197,8 +197,8 @@ def create_billing(db: Session, billing: schemas.BillingCreate):
 def create_bulk_billings(db: Session, request: schemas.BillingBulkCreate):
     # Find all students with matching gender
     students = db.query(models.Student).filter(models.Student.gender == request.gender).all()
-    count_created = 0
-    count_skipped = 0
+    count_created: int = 0
+    count_skipped: int = 0
     
     for st in students:
         # Check if billing already exists for this student, month, and year
@@ -226,7 +226,7 @@ def create_bulk_billings(db: Session, request: schemas.BillingBulkCreate):
     db.commit()
     return {"created": count_created, "skipped": count_skipped, "gender": request.gender.value}
 
-def add_billing_payment(db: Session, billing_id: int, amount_paid: float, notes: str = None):
+def add_billing_payment(db: Session, billing_id: int, amount_paid: float, notes: Optional[str] = None):
     # 1. Create Transaction
     payment = models.PaymentTransaction(
         billing_id=billing_id,
