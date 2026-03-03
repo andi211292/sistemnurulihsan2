@@ -37,7 +37,7 @@ interface BillingWithStudent extends Billing {
     student: StudentInfo;
 }
 
-type TabType = "KASIR" | "REKAP";
+type TabType = "KASIR" | "REKAP" | "BAYAR_LANGSUNG";
 
 export default function SyahriyahPage() {
     const [activeTab, setActiveTab] = useState<TabType>("KASIR");
@@ -76,6 +76,20 @@ export default function SyahriyahPage() {
     const [rekapStatusFilter, setRekapStatusFilter] = useState("Semua");
     const [rekapData, setRekapData] = useState<BillingWithStudent[]>([]);
     const [rekapLoading, setRekapLoading] = useState(false);
+
+    // Bayar Langsung States
+    const BIAYA_DEFAULT = 300000;
+    const [blStudentId, setBlStudentId] = useState<number | null>(null);
+    const [blStudentName, setBlStudentName] = useState("");
+    const [blSearchQuery, setBlSearchQuery] = useState("");
+    const [blShowDropdown, setBlShowDropdown] = useState(false);
+    const [blBulan, setBlBulan] = useState("Maret");
+    const [blTahun, setBlTahun] = useState(new Date().getFullYear().toString());
+    const [blNominal, setBlNominal] = useState(BIAYA_DEFAULT.toString());
+    const [blLoading, setBlLoading] = useState(false);
+    const [blSuccess, setBlSuccess] = useState<string | null>(null);
+    const [blError, setBlError] = useState<string | null>(null);
+    const blSearchRef = useRef<HTMLDivElement>(null);
 
     const inputRef = useRef<HTMLInputElement>(null);
     const searchWrapperRef = useRef<HTMLDivElement>(null);
@@ -119,6 +133,50 @@ export default function SyahriyahPage() {
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
+
+    // Close bayar-langsung dropdown on outside click
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (blSearchRef.current && !blSearchRef.current.contains(e.target as Node)) {
+                setBlShowDropdown(false);
+            }
+        };
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+    }, []);
+
+    const handleBayarLangsung = async () => {
+        if (!blStudentId) {
+            setBlError("Pilih santri terlebih dahulu.");
+            return;
+        }
+        setBlLoading(true);
+        setBlError(null);
+        setBlSuccess(null);
+        try {
+            const res = await apiFetch("http://127.0.0.1:8080/api/keuangan/syahriyah/bayar-langsung", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    student_id: blStudentId,
+                    bulan: blBulan,
+                    tahun: blTahun,
+                    nominal: parseInt(blNominal) || BIAYA_DEFAULT,
+                    catatan: "Bayar tunai"
+                })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || "Gagal memproses pembayaran");
+            setBlSuccess(data.message);
+            setBlStudentId(null);
+            setBlStudentName("");
+            setBlSearchQuery("");
+        } catch (err: any) {
+            setBlError(err.message);
+        } finally {
+            setBlLoading(false);
+        }
+    };
 
     const loadRekapData = async () => {
         setRekapLoading(true);
@@ -454,6 +512,12 @@ export default function SyahriyahPage() {
                 >
                     📊 Rekapitulasi Global
                 </button>
+                <button
+                    onClick={() => { setActiveTab("BAYAR_LANGSUNG"); setBlSuccess(null); setBlError(null); }}
+                    className={`py-3 px-6 font-bold flex-1 sm:flex-none border-b-4 transition-colors ${activeTab === "BAYAR_LANGSUNG" ? "border-emerald-500 text-emerald-600" : "border-transparent text-gray-500 hover:border-gray-300"}`}
+                >
+                    ⚡ Bayar Langsung
+                </button>
             </div>
 
             {/* Notifications */}
@@ -466,6 +530,108 @@ export default function SyahriyahPage() {
                 <div className="p-4 bg-sky-50 text-sky-700 border border-sky-200 rounded-xl font-medium flex items-center gap-2">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
                     {successMsg}
+                </div>
+            )}
+
+            {/* ===== TAB: BAYAR LANGSUNG ===== */}
+            {activeTab === "BAYAR_LANGSUNG" && (
+                <div className="max-w-lg mx-auto">
+                    <div className="bg-white rounded-2xl shadow-sm border border-emerald-100 p-6">
+                        <div className="flex items-center gap-3 mb-5">
+                            <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center text-xl">⚡</div>
+                            <div>
+                                <h2 className="font-bold text-gray-800">Bayar Syahriyah Langsung</h2>
+                                <p className="text-xs text-gray-500">Tanpa perlu buat tagihan manual terlebih dahulu</p>
+                            </div>
+                        </div>
+
+                        {blError && (
+                            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{blError}</div>
+                        )}
+                        {blSuccess && (
+                            <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm text-emerald-700 font-medium">{blSuccess}</div>
+                        )}
+
+                        {/* Cari Santri */}
+                        <div className="mb-4" ref={blSearchRef}>
+                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Nama Santri</label>
+                            {blStudentId ? (
+                                <div className="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+                                    <span className="text-sm font-semibold text-emerald-700">✅ {blStudentName}</span>
+                                    <button onClick={() => { setBlStudentId(null); setBlStudentName(""); setBlSearchQuery(""); }} className="text-xs text-gray-400 hover:text-red-500">Ganti</button>
+                                </div>
+                            ) : (
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        placeholder="Ketik nama santri..."
+                                        value={blSearchQuery}
+                                        onChange={(e) => { setBlSearchQuery(e.target.value); setBlShowDropdown(true); }}
+                                        onFocus={() => setBlShowDropdown(true)}
+                                        className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400"
+                                    />
+                                    {blShowDropdown && blSearchQuery.length > 0 && (
+                                        <ul className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                                            {studentsList
+                                                .filter(s => s.full_name.toLowerCase().includes(blSearchQuery.toLowerCase()) &&
+                                                    (activeGender === "PUTRA" ? s.gender === "PUTRA" : s.gender === "PUTRI"))
+                                                .slice(0, 8)
+                                                .map(s => (
+                                                    <li key={s.student_id}
+                                                        onClick={() => { setBlStudentId(s.student_id); setBlStudentName(`${s.full_name} (${s.student_class})`); setBlSearchQuery(""); setBlShowDropdown(false); }}
+                                                        className="px-3 py-2 text-sm hover:bg-emerald-50 cursor-pointer border-b border-gray-50 last:border-0"
+                                                    >
+                                                        <span className="font-medium">{s.full_name}</span>
+                                                        <span className="text-gray-400 ml-2 text-xs">{s.student_class} · {s.dormitory}</span>
+                                                    </li>
+                                                ))
+                                            }
+                                            {studentsList.filter(s => s.full_name.toLowerCase().includes(blSearchQuery.toLowerCase()) && (activeGender === "PUTRA" ? s.gender === "PUTRA" : s.gender === "PUTRI")).length === 0 && (
+                                                <li className="px-3 py-2 text-sm text-gray-400">Tidak ada hasil</li>
+                                            )}
+                                        </ul>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Bulan & Tahun */}
+                        <div className="grid grid-cols-2 gap-3 mb-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1.5">Bulan</label>
+                                <select value={blBulan} onChange={e => setBlBulan(e.target.value)}
+                                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-emerald-400">
+                                    {["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"].map(b => (
+                                        <option key={b} value={b}>{b}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1.5">Tahun</label>
+                                <input type="number" min="2020" max="2100" value={blTahun} onChange={e => setBlTahun(e.target.value)}
+                                    className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-emerald-400" />
+                            </div>
+                        </div>
+
+                        {/* Nominal */}
+                        <div className="mb-5">
+                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Nominal (Rp)</label>
+                            <input type="number" value={blNominal} onChange={e => setBlNominal(e.target.value)}
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-emerald-400"
+                                placeholder="300000" />
+                            <p className="text-xs text-gray-400 mt-1">Default Rp 300.000 — sesuaikan jika ada ketentuan berbeda</p>
+                        </div>
+
+                        {/* Konfirmasi */}
+                        <button
+                            onClick={handleBayarLangsung}
+                            disabled={blLoading || !blStudentId}
+                            className="w-full py-3 font-bold text-white rounded-xl transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                            style={{ backgroundColor: blLoading ? "#6b7280" : "#10b981" }}
+                        >
+                            {blLoading ? "⏳ Memproses..." : `✅ Konfirmasi Bayar — ${blBulan} ${blTahun}`}
+                        </button>
+                    </div>
                 </div>
             )}
 

@@ -172,3 +172,290 @@ def pay_billing(
 def get_financial_announcements(db: Session = Depends(get_db)):
     announcements = crud.get_recent_announcements(db)
     return announcements
+
+
+# =========================================================
+# BIAYA SYAHRIYAH DEFAULT (bisa diubah sesuai kebijakan)
+# =========================================================
+BIAYA_SYAHRIYAH_DEFAULT = 300_000  # Rp 300.000
+
+@router.post("/syahriyah/bayar-langsung")
+def bayar_syahriyah_langsung(
+    request: dict,
+    db: Session = Depends(get_db),
+    user_role: models.RoleEnum = Depends(require_role([
+        models.RoleEnum.KASIR_SYAHRIYAH_PUTRA,
+        models.RoleEnum.KASIR_SYAHRIYAH_PUTRI,
+        models.RoleEnum.SUPER_ADMIN
+    ]))
+):
+    """
+    Bayar Syahriyah langsung tanpa harus buat tagihan manual.
+    - Jika billing bulan/tahun tsb belum ada → otomatis buat.
+    - Langsung catat pembayaran LUNAS.
+    
+    Body JSON:
+    {
+        "student_id": 1,          # atau
+        "rfid_uid": "CARD-123",   # salah satu
+        "bulan": "Maret",
+        "tahun": "2026",
+        "nominal": 300000,        # opsional, default BIAYA_SYAHRIYAH_DEFAULT
+        "catatan": "Bayar tunai"  # opsional
+    }
+    """
+    # 1. Ambil data santri
+    student = None
+    if request.get("rfid_uid"):
+        student = crud.get_student_by_rfid(db, rfid_uid=request["rfid_uid"])
+    elif request.get("student_id"):
+        student = db.query(models.Student).filter(
+            models.Student.student_id == request["student_id"]
+        ).first()
+    
+    if not student:
+        raise HTTPException(status_code=404, detail="Santri tidak ditemukan")
+
+    # 2. Cek gender silo
+    bulan = request.get("bulan", "")
+    tahun = request.get("tahun", str(datetime.now().year))
+    nominal = request.get("nominal", BIAYA_SYAHRIYAH_DEFAULT)
+    catatan = request.get("catatan", "Pembayaran Syahriyah")
+
+    if not bulan:
+        raise HTTPException(status_code=400, detail="Bulan harus diisi")
+    
+    if user_role == models.RoleEnum.KASIR_SYAHRIYAH_PUTRA and student.gender.value != "PUTRA":
+        raise HTTPException(status_code=403, detail="Akses ditolak: Santri ini terdaftar di cluster Putri.")
+    if user_role == models.RoleEnum.KASIR_SYAHRIYAH_PUTRI and student.gender.value != "PUTRI":
+        raise HTTPException(status_code=403, detail="Akses ditolak: Santri ini terdaftar di cluster Putra.")
+
+    # 3. Cek apakah billing bulan/tahun ini sudah ada
+    billing = db.query(models.Billing).filter(
+        models.Billing.student_id == student.student_id,
+        models.Billing.month == bulan,
+        models.Billing.year == tahun
+    ).first()
+
+    if billing and billing.status == models.BillingStatusEnum.PAID:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Syahriyah {bulan} {tahun} untuk santri ini sudah LUNAS."
+        )
+
+    # 4. Buat billing jika belum ada
+    if not billing:
+        billing = models.Billing(
+            student_id=student.student_id,
+            month=bulan,
+            year=tahun,
+            total_amount=float(nominal),
+            details=f"Syahriyah {bulan} {tahun}",
+            status=models.BillingStatusEnum.UNPAID
+        )
+        db.add(billing)
+        db.flush()  # Agar billing.id tersedia
+
+    # 5. Catat pembayaran
+    payment = models.PaymentTransaction(
+        billing_id=billing.id,
+        amount_paid=float(nominal),
+        payment_date=datetime.now(),
+        notes=catatan
+    )
+    db.add(payment)
+
+    # 6. Update status billing menjadi PAID
+    billing.status = models.BillingStatusEnum.PAID
+    billing.total_amount = float(nominal)
+    
+    db.commit()
+    db.refresh(billing)
+
+    return {
+        "success": True,
+        "message": f"✅ Pembayaran Syahriyah {bulan} {tahun} untuk {student.full_name} berhasil dicatat.",
+        "billing_id": billing.id,
+        "student": {
+            "student_id": student.student_id,
+            "nama": student.full_name,
+            "kelas": student.student_class,
+        },
+        "nominal": nominal,
+        "status": "PAID"
+    }
+
+
+@router.get("/laporan/keuangan")
+def download_laporan_keuangan(
+    bulan: int,
+    tahun: int,
+    db: Session = Depends(get_db)
+):
+    """Download laporan keuangan bulanan dalam format CSV."""
+    import csv
+    import io
+    from fastapi.responses import StreamingResponse
+
+    bulan_str = str(bulan)
+    tahun_str = str(tahun)
+
+    # 1. Total Pemasukan Syahriyah (billing yang PAID di bulan/tahun tsb)
+    from sqlalchemy import func
+    billings_paid = db.query(models.Billing).filter(
+        models.Billing.month == bulan_str,
+        models.Billing.year == tahun_str,
+        models.Billing.status == models.BillingStatusEnum.PAID
+    ).all()
+    total_syahriyah = sum(b.total_amount for b in billings_paid)
+
+    # 2. Perlu data pembayaran parsial juga (PARTIAL)
+    billings_partial = db.query(models.Billing).filter(
+        models.Billing.month == bulan_str,
+        models.Billing.year == tahun_str,
+        models.Billing.status == models.BillingStatusEnum.PARTIAL
+    ).all()
+    # Untuk PARTIAL, hitung dari payment_transactions
+    partial_ids = [b.id for b in billings_partial]
+    if partial_ids:
+        partial_paid = db.query(func.sum(models.PaymentTransaction.amount_paid)).filter(
+            models.PaymentTransaction.billing_id.in_(partial_ids)
+        ).scalar() or 0.0
+        total_syahriyah += partial_paid
+
+    # 3. Total Top-Up E-Money di bulan/tahun tsb
+    from sqlalchemy import extract
+    total_topup = db.query(func.sum(models.Transaction.amount)).filter(
+        models.Transaction.type == models.TransactionTypeEnum.TOPUP,
+        extract('month', models.Transaction.created_at) == bulan,
+        extract('year', models.Transaction.created_at) == tahun
+    ).scalar() or 0.0
+
+    # 4. Total Pengeluaran (Jajan) E-Money di bulan/tahun tsb
+    total_pengeluaran = db.query(func.sum(models.Transaction.amount)).filter(
+        models.Transaction.type == models.TransactionTypeEnum.PAYMENT,
+        extract('month', models.Transaction.created_at) == bulan,
+        extract('year', models.Transaction.created_at) == tahun
+    ).scalar() or 0.0
+
+    # Nama bulan
+    nama_bulan = ["", "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+                  "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+    label_bulan = nama_bulan[bulan] if 1 <= bulan <= 12 else str(bulan)
+
+    # Build CSV
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    writer.writerow(["LAPORAN KEUANGAN BULANAN"])
+    writer.writerow([f"Periode: {label_bulan} {tahun}"])
+    writer.writerow([])
+    writer.writerow(["Kategori", "Total (Rp)"])
+    writer.writerow(["Total Pemasukan Syahriyah", f"{total_syahriyah:,.0f}"])
+    writer.writerow(["Total Top-Up E-Money", f"{total_topup:,.0f}"])
+    writer.writerow(["Total Pengeluaran/Jajan Santri", f"{total_pengeluaran:,.0f}"])
+    writer.writerow([])
+    writer.writerow(["Saldo Bersih E-Money", f"{total_topup - total_pengeluaran:,.0f}"])
+
+    output.seek(0)
+    filename = f"Laporan_Keuangan_{bulan}_{tahun}.csv"
+
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+@router.get("/laporan/tunggakan")
+def get_tunggakan_syahriyah(
+    bulan: int,
+    tahun: int,
+    format: Optional[str] = "json",
+    db: Session = Depends(get_db)
+):
+    """Daftar santri yang belum lunas Syahriyah pada bulan/tahun tertentu.
+    
+    Menggunakan LEFT JOIN: santri tanpa record billing di bulan ini
+    juga dianggap BELUM BAYAR (bukan lunas).
+    """
+    import csv
+    import io
+    from fastapi.responses import StreamingResponse
+    from sqlalchemy.orm import aliased
+    from sqlalchemy import and_
+
+    bulan_str = str(bulan)
+    tahun_str = str(tahun)
+
+    # LEFT JOIN: ambil SEMUA santri, gabungkan dengan billing bulan ini (jika ada)
+    # Santri yang tidak punya billing = NULL billing = belum bayar
+    BillingAlias = aliased(models.Billing)
+
+    rows = (
+        db.query(models.Student, BillingAlias)
+        .outerjoin(
+            BillingAlias,
+            and_(
+                BillingAlias.student_id == models.Student.student_id,
+                BillingAlias.month == bulan_str,
+                BillingAlias.year == tahun_str,
+            )
+        )
+        .order_by(models.Student.student_class, models.Student.full_name)
+        .all()
+    )
+
+    result = []
+    for student, billing in rows:
+        # Lunas hanya jika ada billing dan statusnya PAID
+        if billing and billing.status == models.BillingStatusEnum.PAID:
+            continue  # Skip santri yang sudah lunas
+
+        # Tentukan status tampilan
+        if billing is None:
+            status_label = "UNPAID"
+            total_tagihan = 0.0
+        elif billing.status == models.BillingStatusEnum.PARTIAL:
+            status_label = "PARTIAL"
+            total_tagihan = billing.total_amount
+        else:
+            status_label = "UNPAID"
+            total_tagihan = billing.total_amount
+
+        result.append({
+            "student_id": student.student_id,
+            "nama": student.full_name,
+            "kelas": student.student_class,
+            "asrama": student.dormitory,
+            "gender": student.gender.value,
+            "total_tagihan": total_tagihan,
+            "status": status_label,
+        })
+
+    if format == "csv":
+        nama_bulan = ["", "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+                      "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+        label_bulan = nama_bulan[bulan] if 1 <= bulan <= 12 else str(bulan)
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow([f"DAFTAR TUNGGAKAN SYAHRIYAH - {label_bulan} {tahun}"])
+        writer.writerow([f"Total santri menunggak: {len(result)}"])
+        writer.writerow([])
+        writer.writerow(["No", "Nama Santri", "Kelas", "Asrama", "Gender", "Total Tagihan (Rp)", "Status"])
+        for i, row in enumerate(result, 1):
+            writer.writerow([
+                i, row["nama"], row["kelas"], row["asrama"], row["gender"],
+                f"{row['total_tagihan']:,.0f}", row["status"]
+            ])
+
+        output.seek(0)
+        filename = f"Tunggakan_Syahriyah_{bulan}_{tahun}.csv"
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+
+    return {"bulan": bulan, "tahun": tahun, "total_tunggakan": len(result), "data": result}

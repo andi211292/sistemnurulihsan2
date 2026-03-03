@@ -1,143 +1,282 @@
 "use client";
 
 import { useState } from "react";
-import axios from "axios";
-import * as XLSX from "xlsx";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
+const NAMA_BULAN = [
+    "", "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+    "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+];
+
+interface TunggakanItem {
+    student_id: number;
+    nama: string;
+    kelas: string;
+    asrama: string;
+    gender: string;
+    total_tagihan: number;
+    status: string;
+}
 
 export default function LaporanKeuanganPage() {
-    const [selectedBulan, setSelectedBulan] = useState(new Date().getMonth() + 1);
-    const [selectedTahun, setSelectedTahun] = useState(new Date().getFullYear());
-    const [isLoading, setIsLoading] = useState(false);
+    const currentMonth = new Date().getMonth() + 1;
+    const currentYear = new Date().getFullYear();
+
+    const [bulan, setBulan] = useState(currentMonth);
+    const [tahun, setTahun] = useState(currentYear);
+    const [isDownloading, setIsDownloading] = useState(false);
+    const [isLoadingTunggakan, setIsLoadingTunggakan] = useState(false);
+    const [isDownloadingTunggakan, setIsDownloadingTunggakan] = useState(false);
+    const [tunggakanData, setTunggakanData] = useState<TunggakanItem[] | null>(null);
+    const [tunggakanPeriod, setTunggakanPeriod] = useState<string>("");
     const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState<string | null>(null);
+
+    const getAuthHeader = () => {
+        const token = localStorage.getItem("access_token");
+        return { Authorization: `Bearer ${token}` };
+    };
 
     const handleDownloadCSV = async () => {
+        setIsDownloading(true);
+        setError(null);
+        setSuccess(null);
         try {
-            setIsLoading(true);
-            setError(null);
-
-            const token = localStorage.getItem("access_token");
-
-            // Use standard fetch or axios for blob download
-            const response = await axios.get(
-                `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/keuangan/laporan/keuangan`,
-                {
-                    params: { bulan: selectedBulan, tahun: selectedTahun },
-                    responseType: 'blob', // Important for downloading files
-                    headers: {
-                        Authorization: `Bearer ${token}`
-                    }
-                }
+            const res = await fetch(
+                `${API_URL}/api/keuangan/laporan/keuangan?bulan=${bulan}&tahun=${tahun}`,
+                { headers: getAuthHeader() }
             );
-
-            // Create a URL for the blob
-            const url = window.URL.createObjectURL(new Blob([response.data]));
-
-            // Create a temporary link element to trigger the download
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `Laporan_Keuangan_${selectedBulan}_${selectedTahun}.csv`); // Filename
-            document.body.appendChild(link);
-            link.click();
-
-            // Clean up
+            if (!res.ok) {
+                const err = await res.json().catch(() => null);
+                throw new Error(err?.detail || `Error ${res.status}`);
+            }
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `Laporan_Keuangan_${bulan}_${tahun}.csv`;
+            document.body.appendChild(a);
+            a.click();
             window.URL.revokeObjectURL(url);
-            document.body.removeChild(link);
-
-        } catch (err: any) {
-            console.error(err);
-            setError(
-                err.response?.data?.detail ||
-                "Terjadi kesalahan saat mengunduh laporan. Pastikan koneksi server berjalan dan Anda memiliki akses."
-            );
+            document.body.removeChild(a);
+            setSuccess(`Laporan ${NAMA_BULAN[bulan]} ${tahun} berhasil diunduh!`);
+        } catch (e: any) {
+            setError(e.message || "Gagal mengunduh laporan.");
         } finally {
-            setIsLoading(false);
+            setIsDownloading(false);
+        }
+    };
+
+    const handleCekTunggakan = async () => {
+        setIsLoadingTunggakan(true);
+        setError(null);
+        setTunggakanData(null);
+        try {
+            const res = await fetch(
+                `${API_URL}/api/keuangan/laporan/tunggakan?bulan=${bulan}&tahun=${tahun}&format=json`,
+                { headers: getAuthHeader() }
+            );
+            if (!res.ok) {
+                const err = await res.json().catch(() => null);
+                throw new Error(err?.detail || `Error ${res.status}`);
+            }
+            const data = await res.json();
+            setTunggakanData(data.data);
+            setTunggakanPeriod(`${NAMA_BULAN[bulan]} ${tahun}`);
+        } catch (e: any) {
+            setError(e.message || "Gagal mengambil data tunggakan.");
+        } finally {
+            setIsLoadingTunggakan(false);
+        }
+    };
+
+    const handleDownloadTunggakan = async () => {
+        setIsDownloadingTunggakan(true);
+        try {
+            const res = await fetch(
+                `${API_URL}/api/keuangan/laporan/tunggakan?bulan=${bulan}&tahun=${tahun}&format=csv`,
+                { headers: getAuthHeader() }
+            );
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `Tunggakan_Syahriyah_${bulan}_${tahun}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } catch (e: any) {
+            setError("Gagal mengunduh CSV tunggakan.");
+        } finally {
+            setIsDownloadingTunggakan(false);
         }
     };
 
     return (
-        <div className="p-6">
+        <div className="p-6 max-w-5xl mx-auto">
             <div className="mb-6">
-                <h1 className="text-2xl font-bold text-gray-800">Laporan Keuangan</h1>
-                <p className="text-gray-600 mt-1">Unduh rekapitulasi transaksi Syahriyah dan E-Money.</p>
+                <h1 className="text-2xl font-bold text-gray-800">📊 Laporan Keuangan</h1>
+                <p className="text-gray-500 mt-1 text-sm">Rekap transaksi dan tunggakan Syahriyah bulanan.</p>
             </div>
 
+            {/* Alerts */}
             {error && (
-                <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded shadow-sm">
-                    <div className="flex">
-                        <div className="flex-shrink-0">
-                            <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                            </svg>
-                        </div>
-                        <div className="ml-3">
-                            <p className="text-sm text-red-700">{error}</p>
-                        </div>
-                    </div>
+                <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4 rounded flex items-start gap-3">
+                    <span className="text-red-500 text-lg">⚠️</span>
+                    <p className="text-sm text-red-700">{error}</p>
+                </div>
+            )}
+            {success && (
+                <div className="bg-green-50 border-l-4 border-green-500 p-4 mb-4 rounded flex items-start gap-3">
+                    <span className="text-green-500 text-lg">✅</span>
+                    <p className="text-sm text-green-700">{success}</p>
                 </div>
             )}
 
-            <div className="bg-white rounded-xl shadow-md border border-gray-100 p-6 max-w-2xl">
-                <div className="flex flex-col md:flex-row gap-4 mb-6">
+            {/* Period Selector */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
+                <h2 className="text-base font-semibold text-gray-700 mb-3">Pilih Periode</h2>
+                <div className="flex flex-col md:flex-row gap-4">
                     <div className="flex-1">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Pilih Bulan</label>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Bulan</label>
                         <select
-                            value={selectedBulan}
-                            onChange={(e) => setSelectedBulan(Number(e.target.value))}
-                            className="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block p-2.5"
+                            value={bulan}
+                            onChange={(e) => { setBulan(Number(e.target.value)); setTunggakanData(null); }}
+                            className="w-full border border-gray-300 rounded-lg p-2.5 text-sm bg-gray-50 focus:ring-2 focus:ring-emerald-400 focus:border-emerald-400"
                         >
-                            <option value={1}>Januari</option>
-                            <option value={2}>Februari</option>
-                            <option value={3}>Maret</option>
-                            <option value={4}>April</option>
-                            <option value={5}>Mei</option>
-                            <option value={6}>Juni</option>
-                            <option value={7}>Juli</option>
-                            <option value={8}>Agustus</option>
-                            <option value={9}>September</option>
-                            <option value={10}>Oktober</option>
-                            <option value={11}>November</option>
-                            <option value={12}>Desember</option>
+                            {NAMA_BULAN.slice(1).map((nama, i) => (
+                                <option key={i + 1} value={i + 1}>{nama}</option>
+                            ))}
                         </select>
                     </div>
                     <div className="flex-1">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Pilih Tahun</label>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Tahun</label>
                         <input
-                            type="number"
-                            min="2020"
-                            max="2100"
-                            value={selectedTahun}
-                            onChange={(e) => setSelectedTahun(Number(e.target.value))}
-                            className="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-emerald-500 focus:border-emerald-500 block p-2.5"
+                            type="number" min="2020" max="2100"
+                            value={tahun}
+                            onChange={(e) => { setTahun(Number(e.target.value)); setTunggakanData(null); }}
+                            className="w-full border border-gray-300 rounded-lg p-2.5 text-sm bg-gray-50 focus:ring-2 focus:ring-emerald-400"
                         />
                     </div>
                 </div>
-
-                <button
-                    onClick={handleDownloadCSV}
-                    disabled={isLoading}
-                    className="w-full py-3 px-4 flex justify-center items-center gap-2 text-white font-medium rounded-lg shadow-emerald-500/30 transition-all shadow-lg hover:-translate-y-0.5 active:translate-y-0 hover:bg-emerald-600 outline-none"
-                    style={{ backgroundColor: "#10b981" }}
-                >
-                    {isLoading ? (
-                        <>
-                            <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Sedang Menyiapkan Laporan...
-                        </>
-                    ) : (
-                        <>
-                            <span className="text-xl">📊</span>
-                            Download Laporan CSV
-                        </>
-                    )}
-                </button>
-
-                <p className="text-xs text-gray-500 text-center mt-4">
-                    Data mencakup seluruh pemasukan Syahriyah dan Top-Up E-Money, serta pengeluaran Jajan Santri pada bulan tersebut.
-                </p>
             </div>
+
+            {/* Action Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                {/* Card 1: Laporan Keuangan CSV */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center text-xl">📊</div>
+                        <div>
+                            <h3 className="font-semibold text-gray-800">Laporan Keuangan</h3>
+                            <p className="text-xs text-gray-500">Rekap Syahriyah & E-Money</p>
+                        </div>
+                    </div>
+                    <p className="text-xs text-gray-500 mb-4">Unduh file CSV berisi total pemasukan Syahriyah, Top-Up, dan pengeluaran E-Money.</p>
+                    <button
+                        onClick={handleDownloadCSV}
+                        disabled={isDownloading}
+                        className="w-full py-2.5 text-sm font-semibold text-white rounded-lg transition-all hover:-translate-y-0.5 disabled:opacity-60"
+                        style={{ backgroundColor: "#10b981" }}
+                    >
+                        {isDownloading ? "⏳ Menyiapkan..." : "⬇️ Download CSV Keuangan"}
+                    </button>
+                </div>
+
+                {/* Card 2: Tunggakan Syahriyah */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center text-xl">⚠️</div>
+                        <div>
+                            <h3 className="font-semibold text-gray-800">Tunggakan Syahriyah</h3>
+                            <p className="text-xs text-gray-500">Santri belum lunas</p>
+                        </div>
+                    </div>
+                    <p className="text-xs text-gray-500 mb-4">Tampilkan & unduh daftar santri yang belum membayar Syahriyah pada periode yang dipilih.</p>
+                    <button
+                        onClick={handleCekTunggakan}
+                        disabled={isLoadingTunggakan}
+                        className="w-full py-2.5 text-sm font-semibold text-white rounded-lg transition-all hover:-translate-y-0.5 disabled:opacity-60"
+                        style={{ backgroundColor: "#ef4444" }}
+                    >
+                        {isLoadingTunggakan ? "⏳ Memuat..." : "🔍 Cek Tunggakan"}
+                    </button>
+                </div>
+            </div>
+
+            {/* Tunggakan Table */}
+            {tunggakanData !== null && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 className="font-semibold text-gray-800">
+                                Daftar Tunggakan — {tunggakanPeriod}
+                            </h3>
+                            <p className="text-sm text-gray-500 mt-0.5">
+                                {tunggakanData.length === 0
+                                    ? "✅ Semua santri sudah lunas!"
+                                    : `${tunggakanData.length} santri belum lunas`}
+                            </p>
+                        </div>
+                        {tunggakanData.length > 0 && (
+                            <button
+                                onClick={handleDownloadTunggakan}
+                                disabled={isDownloadingTunggakan}
+                                className="flex items-center gap-1.5 text-xs font-semibold text-white px-3 py-2 rounded-lg"
+                                style={{ backgroundColor: "#f59e0b" }}
+                            >
+                                {isDownloadingTunggakan ? "⏳" : "⬇️"} Export CSV
+                            </button>
+                        )}
+                    </div>
+
+                    {tunggakanData.length === 0 ? (
+                        <div className="text-center py-10 text-gray-400">
+                            <div className="text-5xl mb-3">🎉</div>
+                            <p className="font-medium text-gray-600">Semua santri sudah lunas Syahriyah!</p>
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="bg-gray-50 text-left">
+                                        <th className="px-3 py-2.5 text-xs font-semibold text-gray-600 rounded-l-lg">No</th>
+                                        <th className="px-3 py-2.5 text-xs font-semibold text-gray-600">Nama Santri</th>
+                                        <th className="px-3 py-2.5 text-xs font-semibold text-gray-600">Kelas</th>
+                                        <th className="px-3 py-2.5 text-xs font-semibold text-gray-600">Asrama</th>
+                                        <th className="px-3 py-2.5 text-xs font-semibold text-gray-600">Gender</th>
+                                        <th className="px-3 py-2.5 text-xs font-semibold text-gray-600">Tagihan</th>
+                                        <th className="px-3 py-2.5 text-xs font-semibold text-gray-600 rounded-r-lg">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {tunggakanData.map((row, i) => (
+                                        <tr key={row.student_id} className="hover:bg-gray-50 transition-colors">
+                                            <td className="px-3 py-2.5 text-gray-500">{i + 1}</td>
+                                            <td className="px-3 py-2.5 font-medium text-gray-800">{row.nama}</td>
+                                            <td className="px-3 py-2.5 text-gray-600">{row.kelas}</td>
+                                            <td className="px-3 py-2.5 text-gray-600">{row.asrama}</td>
+                                            <td className="px-3 py-2.5">
+                                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${row.gender === 'PUTRA' ? 'bg-blue-100 text-blue-700' : 'bg-pink-100 text-pink-700'}`}>
+                                                    {row.gender}
+                                                </span>
+                                            </td>
+                                            <td className="px-3 py-2.5 text-gray-700">Rp {row.total_tagihan?.toLocaleString("id-ID")}</td>
+                                            <td className="px-3 py-2.5">
+                                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${row.status === 'PARTIAL' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
+                                                    {row.status === 'PARTIAL' ? 'Sebagian' : 'Belum Bayar'}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
