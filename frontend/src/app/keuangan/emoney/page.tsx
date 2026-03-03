@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, FormEvent } from "react";
+import { apiFetch } from "@/utils/api";
 
 interface StudentInfo {
     student_id: number;
@@ -25,6 +26,9 @@ export default function EMoneyPage() {
     const [error, setError] = useState<string | null>(null);
     const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+    // Track user role
+    const [userRole, setUserRole] = useState<string>("SUPER_ADMIN");
+
     // Transaction form state for E-Money
     const [nominal, setNominal] = useState("");
     const [keterangan, setKeterangan] = useState("");
@@ -35,6 +39,16 @@ export default function EMoneyPage() {
     useEffect(() => {
         if (inputRef.current) {
             inputRef.current.focus();
+        }
+
+        // Fetch role
+        const savedRole = localStorage.getItem("user_role");
+        if (savedRole) {
+            setUserRole(savedRole);
+            // Auto default to payment if they are LUAR
+            if (savedRole === "KASIR_KOP_LUAR") {
+                setTxType("PAYMENT");
+            }
         }
     }, [profile, successMsg, error]);
 
@@ -47,7 +61,7 @@ export default function EMoneyPage() {
 
         try {
             // Fetch profile + wallet
-            const profileRes = await fetch(`http://127.0.0.1:8080/api/keuangan/profil/${uid}`);
+            const profileRes = await apiFetch(`http://127.0.0.1:8080/api/keuangan/profil/${uid}`);
             if (!profileRes.ok) {
                 if (profileRes.status === 404) throw new Error("Santri dengan kartu RFID ini tidak terdaftar");
                 throw new Error("Gagal mengambil data keuangan");
@@ -86,9 +100,8 @@ export default function EMoneyPage() {
                 description: keterangan
             };
 
-            const res = await fetch("http://127.0.0.1:8080/api/keuangan/transaksi", {
+            const res = await apiFetch("http://127.0.0.1:8080/api/keuangan/transaksi", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             });
 
@@ -220,7 +233,9 @@ export default function EMoneyPage() {
                                     <button
                                         type="button"
                                         onClick={() => setTxType("TOPUP")}
-                                        className={`flex-1 py-2 text-sm font-bold rounded-md transition-colors ${txType === "TOPUP" ? "bg-emerald-500 text-white shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                                        disabled={userRole === "KASIR_KOP_LUAR"}
+                                        className={`flex-1 py-2 text-sm font-bold rounded-md transition-colors ${txType === "TOPUP" ? "bg-emerald-500 text-white shadow-sm" : "text-gray-500 hover:text-gray-700"} disabled:opacity-30 disabled:cursor-not-allowed`}
+                                        title={userRole === "KASIR_KOP_LUAR" ? "Role Anda (Koperasi Luar) tidak diizinkan melakukan Top-Up" : "Pilih Top-Up Saldo"}
                                     >
                                         Top Up Saldo
                                     </button>

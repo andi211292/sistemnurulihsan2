@@ -1,13 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from .. import schemas, models
 from ..database import SessionLocal
+from ..dependencies import require_role
 
 router = APIRouter(
     prefix="/api/academic",
-    tags=["Academic & Discipline"]
+    tags=["Academic & Discipline"],
+    dependencies=[Depends(require_role([models.RoleEnum.PENGURUS_SANTRI, models.RoleEnum.PENGURUS_SEKOLAH, models.RoleEnum.GURU_BP, models.RoleEnum.PENGURUS_KEAMANAN, models.RoleEnum.SUPER_ADMIN]))]
 )
 
 def get_db():
@@ -25,7 +27,11 @@ def get_teachers(skip: int = 0, limit: int = 100, db: Session = Depends(get_db))
     return teachers
 
 @router.post("/teachers", response_model=schemas.TeacherResponse)
-def create_teacher(teacher: schemas.TeacherCreate, db: Session = Depends(get_db)):
+def create_teacher(
+    teacher: schemas.TeacherCreate, 
+    db: Session = Depends(get_db),
+    user_role: models.RoleEnum = Depends(require_role([models.RoleEnum.PENGURUS_SEKOLAH]))
+):
     db_item = models.Teacher(**teacher.model_dump())
     db.add(db_item)
     db.commit()
@@ -39,7 +45,11 @@ def get_teacher_attendances(skip: int = 0, limit: int = 100, db: Session = Depen
     return db.query(models.TeacherAttendance).offset(skip).limit(limit).all()
 
 @router.post("/teacher-attendances", response_model=schemas.TeacherAttendanceResponse)
-def create_teacher_attendance(att: schemas.TeacherAttendanceCreate, db: Session = Depends(get_db)):
+def create_teacher_attendance(
+    att: schemas.TeacherAttendanceCreate, 
+    db: Session = Depends(get_db),
+    user_role: models.RoleEnum = Depends(require_role([models.RoleEnum.PENGURUS_SEKOLAH]))
+):
     db_item = models.TeacherAttendance(**att.model_dump())
     db.add(db_item)
     db.commit()
@@ -53,7 +63,20 @@ def get_student_leaves(skip: int = 0, limit: int = 100, db: Session = Depends(ge
     return db.query(models.StudentLeave).order_by(models.StudentLeave.id.desc()).offset(skip).limit(limit).all()
 
 @router.post("/student-leaves", response_model=schemas.StudentLeaveResponse)
-def create_student_leave(leave: schemas.StudentLeaveCreate, db: Session = Depends(get_db)):
+def create_student_leave(
+    leave: schemas.StudentLeaveCreate, 
+    db: Session = Depends(get_db),
+    user_role: models.RoleEnum = Depends(require_role([models.RoleEnum.GURU_BP, models.RoleEnum.PENGURUS_KEAMANAN]))
+):
+    # Authorization checks based on Role and Reason
+    if user_role == models.RoleEnum.GURU_BP:
+        if leave.reason not in [models.StudentLeaveReasonEnum.IZIN.value, models.StudentLeaveReasonEnum.SAKIT.value]:
+             raise HTTPException(status_code=403, detail="Akses ditolak: Guru BP hanya dapat menginput perizinan Sekolah (SAKIT/IZIN).")
+    
+    if user_role == models.RoleEnum.PENGURUS_KEAMANAN:
+        if leave.reason not in [models.StudentLeaveReasonEnum.PULANG.value, models.StudentLeaveReasonEnum.IZIN_KELUAR.value]:
+             raise HTTPException(status_code=403, detail="Akses ditolak: Keamanan hanya dapat menginput perizinan Pondok (PULANG/IZIN KELUAR).")
+
     db_item = models.StudentLeave(**leave.model_dump())
     db.add(db_item)
     db.commit()
@@ -61,11 +84,24 @@ def create_student_leave(leave: schemas.StudentLeaveCreate, db: Session = Depend
     return db_item
 
 @router.put("/student-leaves/{leave_id}/return")
-def mark_student_returned(leave_id: int, db: Session = Depends(get_db)):
+def mark_student_returned(
+    leave_id: int, 
+    db: Session = Depends(get_db),
+    user_role: models.RoleEnum = Depends(require_role([models.RoleEnum.GURU_BP, models.RoleEnum.PENGURUS_KEAMANAN]))
+):
     from datetime import datetime
     leave = db.query(models.StudentLeave).filter(models.StudentLeave.id == leave_id).first()
     if not leave:
         raise HTTPException(status_code=404, detail="Izin tidak ditemukan")
+
+    # Authorization checks based on Role and Reason (same rules as creation)
+    if user_role == models.RoleEnum.GURU_BP:
+        if leave.reason not in [models.StudentLeaveReasonEnum.IZIN.value, models.StudentLeaveReasonEnum.SAKIT.value]:
+             raise HTTPException(status_code=403, detail="Akses ditolak: Guru BP hanya mengurus perizinan Sekolah.")
+    
+    if user_role == models.RoleEnum.PENGURUS_KEAMANAN:
+        if leave.reason not in [models.StudentLeaveReasonEnum.PULANG.value, models.StudentLeaveReasonEnum.IZIN_KELUAR.value]:
+             raise HTTPException(status_code=403, detail="Akses ditolak: Keamanan hanya mengurus perizinan Pondok.")
     
     leave.is_returned = True
     leave.return_timestamp = datetime.utcnow()
@@ -80,7 +116,11 @@ def get_student_violations(skip: int = 0, limit: int = 100, db: Session = Depend
     return db.query(models.StudentViolation).offset(skip).limit(limit).all()
 
 @router.post("/student-violations", response_model=schemas.StudentViolationResponse)
-def create_student_violation(violation: schemas.StudentViolationCreate, db: Session = Depends(get_db)):
+def create_student_violation(
+    violation: schemas.StudentViolationCreate, 
+    db: Session = Depends(get_db),
+    user_role: models.RoleEnum = Depends(require_role([models.RoleEnum.PENGURUS_SANTRI]))
+):
     db_item = models.StudentViolation(**violation.model_dump())
     
     # Calculate initial points (simple logic mockup)

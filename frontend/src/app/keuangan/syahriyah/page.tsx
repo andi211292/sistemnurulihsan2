@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, FormEvent } from "react";
+import { apiFetch } from "@/utils/api";
 
 interface StudentInfo {
     student_id: number;
@@ -41,6 +42,7 @@ type TabType = "KASIR" | "REKAP";
 export default function SyahriyahPage() {
     const [activeTab, setActiveTab] = useState<TabType>("KASIR");
     const [activeGender, setActiveGender] = useState<"PUTRA" | "PUTRI">("PUTRA");
+    const [userRole, setUserRole] = useState("SUPER_ADMIN");
 
     // Kasir States
     const [rfidInput, setRfidInput] = useState("");
@@ -82,7 +84,7 @@ export default function SyahriyahPage() {
         // Fetch all students for the autocomplete
         const fetchStudents = async () => {
             try {
-                const res = await fetch("http://127.0.0.1:8080/api/students/");
+                const res = await apiFetch("http://127.0.0.1:8080/api/students/");
                 if (res.ok) setStudentsList(await res.json());
             } catch (err) {
                 console.error("Gagal mengambil daftar santri");
@@ -94,6 +96,17 @@ export default function SyahriyahPage() {
     useEffect(() => {
         if (inputRef.current && activeTab === "KASIR" && !profile) {
             inputRef.current.focus();
+        }
+
+        // Fetch role and lock gender
+        const savedRole = localStorage.getItem("user_role");
+        if (savedRole) {
+            setUserRole(savedRole);
+            if (savedRole === "KASIR_SYAHRIYAH_PUTRA") {
+                setActiveGender("PUTRA");
+            } else if (savedRole === "KASIR_SYAHRIYAH_PUTRI") {
+                setActiveGender("PUTRI");
+            }
         }
     }, [profile, successMsg, error, activeTab]);
 
@@ -115,7 +128,7 @@ export default function SyahriyahPage() {
             if (rekapMonth && rekapMonth !== "Semua") params.append("month", rekapMonth);
             if (rekapYear && rekapYear !== "Semua") params.append("year", rekapYear);
 
-            const res = await fetch(`http://127.0.0.1:8080/api/keuangan/tagihan/rekap?${params.toString()}`);
+            const res = await apiFetch(`http://127.0.0.1:8080/api/keuangan/tagihan/rekap?${params.toString()}`);
             if (!res.ok) throw new Error("Gagal mengambil data rekap");
             const data = await res.json();
             setRekapData(data);
@@ -151,7 +164,7 @@ export default function SyahriyahPage() {
 
         try {
             // Fetch profile
-            const profileRes = await fetch(`http://127.0.0.1:8080/api/keuangan/profil/${uid}`);
+            const profileRes = await apiFetch(`http://127.0.0.1:8080/api/keuangan/profil/${uid}`);
             if (!profileRes.ok) {
                 if (profileRes.status === 404) throw new Error("Santri dengan kartu RFID ini tidak terdaftar");
                 throw new Error("Gagal mengambil data santri");
@@ -160,10 +173,12 @@ export default function SyahriyahPage() {
             setProfile(profileData);
 
             // Fetch billings
-            const billingsRes = await fetch(`http://127.0.0.1:8080/api/keuangan/tagihan/${uid}`);
+            const billingsRes = await apiFetch(`http://127.0.0.1:8080/api/keuangan/tagihan/${uid}`);
             if (billingsRes.ok) {
                 const billingsData = await billingsRes.json();
                 setBillings(billingsData);
+            } else {
+                throw new Error("Akses ditolak atau Tagihan tidak ditemukan");
             }
         } catch (err: any) {
             setError(err.message);
@@ -205,9 +220,8 @@ export default function SyahriyahPage() {
                 total_amount: parseFloat(newBillingTotalAmount)
             };
 
-            const res = await fetch("http://127.0.0.1:8080/api/keuangan/tagihan", {
+            const res = await apiFetch("http://127.0.0.1:8080/api/keuangan/tagihan", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             });
 
@@ -249,9 +263,8 @@ export default function SyahriyahPage() {
                 total_amount: parseFloat(newBillingTotalAmount)
             };
 
-            const res = await fetch("http://127.0.0.1:8080/api/keuangan/tagihan/bulk", {
+            const res = await apiFetch("http://127.0.0.1:8080/api/keuangan/tagihan/bulk", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             });
 
@@ -296,9 +309,8 @@ export default function SyahriyahPage() {
                 notes: "Cicilan via Kasir (Tarik Tunai / Transfer langsung)"
             };
 
-            const res = await fetch(`http://127.0.0.1:8080/api/keuangan/tagihan/bayar`, {
+            const res = await apiFetch(`http://127.0.0.1:8080/api/keuangan/tagihan/bayar`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             });
 
@@ -412,13 +424,17 @@ export default function SyahriyahPage() {
             <div className="flex bg-gray-100 p-1 rounded-2xl w-full max-w-sm mx-auto shadow-inner mb-6">
                 <button
                     onClick={() => setActiveGender("PUTRA")}
-                    className={`flex-1 py-3 px-6 text-center rounded-xl font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2 ${activeGender === "PUTRA" ? "bg-white text-sky-600 shadow-md ring-1 ring-black/5" : "text-gray-500 hover:text-gray-700"}`}
+                    disabled={userRole === "KASIR_SYAHRIYAH_PUTRI"}
+                    className={`flex-1 py-3 px-6 text-center rounded-xl font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2 ${activeGender === "PUTRA" ? "bg-white text-sky-600 shadow-md ring-1 ring-black/5" : "text-gray-500 hover:text-gray-700"} disabled:opacity-50 disabled:cursor-not-allowed`}
+                    title={userRole === "KASIR_SYAHRIYAH_PUTRI" ? "Kasir Putri tidak diizinkan mengakses data Putra" : "Data Keuangan Putra"}
                 >
                     <span className="text-xl">👦</span> Keuangan Putra
                 </button>
                 <button
                     onClick={() => setActiveGender("PUTRI")}
-                    className={`flex-1 py-3 px-6 text-center rounded-xl font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2 ${activeGender === "PUTRI" ? "bg-white text-rose-600 shadow-md ring-1 ring-black/5" : "text-gray-500 hover:text-gray-700"}`}
+                    disabled={userRole === "KASIR_SYAHRIYAH_PUTRA"}
+                    className={`flex-1 py-3 px-6 text-center rounded-xl font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2 ${activeGender === "PUTRI" ? "bg-white text-rose-600 shadow-md ring-1 ring-black/5" : "text-gray-500 hover:text-gray-700"} disabled:opacity-50 disabled:cursor-not-allowed`}
+                    title={userRole === "KASIR_SYAHRIYAH_PUTRA" ? "Kasir Putra tidak diizinkan mengakses data Putri" : "Data Keuangan Putri"}
                 >
                     <span className="text-xl">🧕</span> Keuangan Putri
                 </button>
@@ -428,13 +444,13 @@ export default function SyahriyahPage() {
             <div className="flex gap-4 border-b border-gray-200 mt-2 mb-6">
                 <button
                     onClick={() => setActiveTab("KASIR")}
-                    className={`py-3 px-6 font-bold flex-1 sm:flex-none border-b-4 transition-colors ${activeTab === "KASIR" ? "border-sky-500 text-sky-600" : "border-transparent text-gray-500 hover:border-gray-300"}`}
+                    className={`py-3 px-6 font-bold flex-1 sm:flex-none border-b-4 transition-colors ${activeTab === "KASIR" ? (activeGender === "PUTRA" ? "border-sky-500 text-sky-600" : "border-rose-500 text-rose-600") : "border-transparent text-gray-500 hover:border-gray-300"}`}
                 >
                     💳 Kasir & Input Cicilan
                 </button>
                 <button
                     onClick={() => setActiveTab("REKAP")}
-                    className={`py-3 px-6 font-bold flex-1 sm:flex-none border-b-4 transition-colors ${activeTab === "REKAP" ? "border-sky-500 text-sky-600" : "border-transparent text-gray-500 hover:border-gray-300"}`}
+                    className={`py-3 px-6 font-bold flex-1 sm:flex-none border-b-4 transition-colors ${activeTab === "REKAP" ? (activeGender === "PUTRA" ? "border-sky-500 text-sky-600" : "border-rose-500 text-rose-600") : "border-transparent text-gray-500 hover:border-gray-300"}`}
                 >
                     📊 Rekapitulasi Global
                 </button>

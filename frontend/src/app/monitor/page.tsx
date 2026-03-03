@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { apiFetch } from "@/utils/api";
 
 interface LogStudentInfo {
     full_name: string;
@@ -31,7 +32,7 @@ export default function LiveMonitorPage() {
     useEffect(() => {
         const fetchLogs = async () => {
             try {
-                const res = await fetch("http://127.0.0.1:8080/api/rfid/log-terbaru");
+                const res = await apiFetch("http://127.0.0.1:8080/api/rfid/log-terbaru");
                 if (!res.ok) throw new Error("Gagal mengambil live data");
                 const data = await res.json();
                 setAttendanceLogs(data.attendance);

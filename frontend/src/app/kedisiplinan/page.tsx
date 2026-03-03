@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { apiFetch } from "@/utils/api";
 
 interface StudentLeave {
     id: number;
@@ -40,26 +41,43 @@ export default function KedisiplinanPage() {
     const [leaveForm, setLeaveForm] = useState({ student_id: "", start_date: "", end_date: "", start_time: "", end_time: "", reason: "SAKIT", notes: "" });
     const [violationForm, setViolationForm] = useState({ student_id: "", violation_date: "", violation_type: "", punishment: "", points: 10 });
     const [isSaving, setIsSaving] = useState(false);
+    const [userRole, setUserRole] = useState("SUPER_ADMIN");
 
     const fetchData = async () => {
         try {
             // Load students for dropdown
             if (students.length === 0) {
-                const stRes = await fetch("http://127.0.0.1:8080/api/students/");
+                const stRes = await apiFetch("http://127.0.0.1:8080/api/students/");
                 if (stRes.ok) setStudents(await stRes.json());
             }
 
             if (activeTab === "leave") {
-                const lRes = await fetch("http://127.0.0.1:8080/api/academic/student-leaves");
+                const lRes = await apiFetch("http://127.0.0.1:8080/api/academic/student-leaves");
                 if (lRes.ok) setLeaves(await lRes.json());
             } else {
-                const vRes = await fetch("http://127.0.0.1:8080/api/academic/student-violations");
+                const vRes = await apiFetch("http://127.0.0.1:8080/api/academic/student-violations");
                 if (vRes.ok) setViolations(await vRes.json());
             }
         } catch (e) {
             console.error(e);
         }
     };
+
+    useEffect(() => {
+        const savedRole = localStorage.getItem("user_role");
+        if (savedRole) {
+            setUserRole(savedRole);
+            if (savedRole === "PENGURUS_SANTRI") {
+                setActiveTab("violation");
+            } else if (savedRole === "GURU_BP" || savedRole === "PENGURUS_KEAMANAN") {
+                setActiveTab("leave");
+                // Set default reason for Keamanan to avoid the default "SAKIT" which is not allowed for them
+                if (savedRole === "PENGURUS_KEAMANAN") setLeaveForm(f => ({ ...f, reason: "PULANG" }));
+            }
+        }
+
+        // Need to call fetchData after deciding the activeTab based on role, so we set a flag or just let the dependency handle it. This works since activeTab is a dependency.
+    }, []);
 
     useEffect(() => {
         fetchData();
@@ -75,9 +93,8 @@ export default function KedisiplinanPage() {
                 payload.end_time = "";
             }
 
-            const res = await fetch("http://127.0.0.1:8080/api/academic/student-leaves", {
+            const res = await apiFetch("http://127.0.0.1:8080/api/academic/student-leaves", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             });
             if (res.ok) {
@@ -92,7 +109,7 @@ export default function KedisiplinanPage() {
 
     const markReturned = async (leave_id: number) => {
         try {
-            const res = await fetch(`http://127.0.0.1:8080/api/academic/student-leaves/${leave_id}/return`, {
+            const res = await apiFetch(`http://127.0.0.1:8080/api/academic/student-leaves/${leave_id}/return`, {
                 method: "PUT"
             });
             if (res.ok) {
@@ -110,9 +127,8 @@ export default function KedisiplinanPage() {
         e.preventDefault();
         setIsSaving(true);
         try {
-            const res = await fetch("http://127.0.0.1:8080/api/academic/student-violations", {
+            const res = await apiFetch("http://127.0.0.1:8080/api/academic/student-violations", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ ...violationForm, student_id: parseInt(violationForm.student_id) })
             });
             if (res.ok) {
@@ -133,18 +149,22 @@ export default function KedisiplinanPage() {
             </div>
 
             <div className="flex space-x-1 border-b border-gray-200">
-                <button
-                    onClick={() => setActiveTab("violation")}
-                    className={`py-3 px-6 text-sm font-medium border-b-2 transition-colors ${activeTab === "violation" ? "border-sky-500 text-sky-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}
-                >
-                    Catat Pelanggaran
-                </button>
-                <button
-                    onClick={() => setActiveTab("leave")}
-                    className={`py-3 px-6 text-sm font-medium border-b-2 transition-colors ${activeTab === "leave" ? "border-emerald-500 text-emerald-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}
-                >
-                    Buku Induk Perizinan
-                </button>
+                {userRole !== "GURU_BP" && userRole !== "PENGURUS_KEAMANAN" && (
+                    <button
+                        onClick={() => setActiveTab("violation")}
+                        className={`py-3 px-6 text-sm font-medium border-b-2 transition-colors ${activeTab === "violation" ? "border-sky-500 text-sky-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+                    >
+                        Catat Pelanggaran
+                    </button>
+                )}
+                {userRole !== "PENGURUS_SANTRI" && (
+                    <button
+                        onClick={() => setActiveTab("leave")}
+                        className={`py-3 px-6 text-sm font-medium border-b-2 transition-colors ${activeTab === "leave" ? "border-emerald-500 text-emerald-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+                    >
+                        Buku Induk Perizinan
+                    </button>
+                )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -196,10 +216,19 @@ export default function KedisiplinanPage() {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Alasan</label>
                                 <select value={leaveForm.reason} onChange={e => setLeaveForm({ ...leaveForm, reason: e.target.value })} className="w-full px-3 py-2 border rounded-lg bg-gray-50">
-                                    <option value="SAKIT">Sakit / Dirawat</option>
-                                    <option value="IZIN">Izin Keperluan Keluarga</option>
-                                    <option value="PULANG">Pulang Kampung</option>
-                                    <option value="IZIN_KELUAR">Izin Keluar Sementara (Jam-jaman)</option>
+                                    {(userRole === "SUPER_ADMIN" || userRole === "GURU_BP") && (
+                                        <>
+                                            <option value="SAKIT">Sakit / Dirawat</option>
+                                            <option value="IZIN">Izin Keperluan Sekolah/Keluarga</option>
+                                        </>
+                                    )}
+                                    {(userRole === "SUPER_ADMIN" || userRole === "PENGURUS_KEAMANAN") && (
+                                        <>
+                                            <option value="PULANG">Pulang Kampung</option>
+                                            <option value="IZIN_KELUAR">Izin Keluar Sementara (Jam-jaman)</option>
+                                        </>
+                                    )}
+                                    {/* Default fallback if someone somehow sneaks in: SUPER_ADMIN handles everything */}
                                 </select>
                             </div>
                             <div className="grid grid-cols-2 gap-3">

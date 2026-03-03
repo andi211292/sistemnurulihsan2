@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import * as XLSX from "xlsx";
+import { apiFetch } from "@/utils/api";
 
 interface Student {
     student_id: number;
@@ -40,7 +41,7 @@ export default function SantriPage() {
     const fetchStudents = async () => {
         try {
             setLoading(true);
-            const res = await fetch("http://127.0.0.1:8080/api/students/");
+            const res = await apiFetch("http://127.0.0.1:8080/api/students/");
             if (!res.ok) {
                 throw new Error("Gagal mengambil data dari server lokal");
             }
@@ -91,7 +92,7 @@ export default function SantriPage() {
             const formData = new FormData();
             formData.append("file", file);
 
-            const res = await fetch("http://127.0.0.1:8080/api/students/import_excel", {
+            const res = await apiFetch("http://127.0.0.1:8080/api/students/import_excel", {
                 method: "POST",
                 body: formData
             });
@@ -124,7 +125,7 @@ export default function SantriPage() {
             const formData = new FormData();
             formData.append("file", file);
 
-            const res = await fetch("http://127.0.0.1:8080/api/students/import_csv", {
+            const res = await apiFetch("http://127.0.0.1:8080/api/students/import_csv", {
                 method: "POST",
                 body: formData
             });
@@ -171,9 +172,8 @@ export default function SantriPage() {
 
         try {
             if (modalMode === "add") {
-                const res = await fetch("http://127.0.0.1:8080/api/students/", {
+                const res = await apiFetch("http://127.0.0.1:8080/api/students/", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         nis: formData.nis,
                         rfid_uid: formData.rfid_uid || null,
@@ -188,9 +188,8 @@ export default function SantriPage() {
                     throw new Error(errData.detail || "Gagal menambah santri");
                 }
             } else {
-                const res = await fetch(`http://127.0.0.1:8080/api/students/${formData.id}`, {
+                const res = await apiFetch(`http://127.0.0.1:8080/api/students/${formData.id}`, {
                     method: "PUT",
-                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         nis: formData.nis,
                         rfid_uid: formData.rfid_uid || null,
@@ -223,7 +222,7 @@ export default function SantriPage() {
 
         try {
             setLoading(true);
-            const res = await fetch(`http://127.0.0.1:8080/api/students/${student_id}`, {
+            const res = await apiFetch(`http://127.0.0.1:8080/api/students/${student_id}`, {
                 method: "DELETE"
             });
             if (!res.ok) {

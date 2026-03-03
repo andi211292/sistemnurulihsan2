@@ -4,10 +4,12 @@ from datetime import datetime
 
 from .. import schemas, crud, models
 from ..database import SessionLocal
+from ..dependencies import require_role
 
 router = APIRouter(
     prefix="/api/rfid",
-    tags=["RFID Operations"]
+    tags=["RFID Operations"],
+    dependencies=[Depends(require_role([models.RoleEnum.PENGURUS_SANTRI, models.RoleEnum.PENGURUS_SEKOLAH, models.RoleEnum.GURU_BP, models.RoleEnum.PENGURUS_KEAMANAN, models.RoleEnum.SUPER_ADMIN]))]
 )
 
 # Dependency

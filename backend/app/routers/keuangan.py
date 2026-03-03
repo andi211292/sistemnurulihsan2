@@ -5,10 +5,12 @@ from datetime import datetime
 
 from .. import schemas, crud, models
 from ..database import SessionLocal
+from ..dependencies import require_role
 
 router = APIRouter(
     prefix="/api/keuangan",
-    tags=["Financial Operations"]
+    tags=["Financial Operations"],
+    dependencies=[Depends(require_role([models.RoleEnum.KASIR_KOP_PUSAT, models.RoleEnum.KASIR_KOP_LUAR, models.RoleEnum.KASIR_SYAHRIYAH_PUTRA, models.RoleEnum.KASIR_SYAHRIYAH_PUTRI, models.RoleEnum.SUPER_ADMIN]))]
 )
 
 # Dependency
@@ -20,7 +22,19 @@ def get_db():
         db.close()
 
 @router.post("/transaksi", response_model=schemas.TransactionResponse)
-def process_transaction(request: schemas.TransactionRequest, db: Session = Depends(get_db)):
+def process_transaction(
+    request: schemas.TransactionRequest, 
+    db: Session = Depends(get_db),
+    user_role: models.RoleEnum = Depends(require_role([models.RoleEnum.KASIR_KOP_PUSAT, models.RoleEnum.KASIR_KOP_LUAR]))
+):
+    # 0. Validate Role for TOPUP
+    if request.type == models.TransactionTypeEnum.TOPUP:
+        if user_role == models.RoleEnum.KASIR_KOP_LUAR:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Kasir Koperasi Luar (Warung) tidak diizinkan melakukan Top-Up saldo E-Money."
+            )
+
     # 1. Get student
     student = crud.get_student_by_rfid(db, rfid_uid=request.rfid_uid)
     if not student:
@@ -73,10 +87,20 @@ def get_billings_recap(month: Optional[str] = None, year: Optional[str] = None, 
     return crud.get_billings_by_period(db, month=month, year=year)
 
 @router.get("/tagihan/{uid_rfid}", response_model=List[schemas.BillingResponse])
-def get_billings(uid_rfid: str, db: Session = Depends(get_db)):
+def get_billings(
+    uid_rfid: str, 
+    db: Session = Depends(get_db),
+    user_role: models.RoleEnum = Depends(require_role([models.RoleEnum.KASIR_SYAHRIYAH_PUTRA, models.RoleEnum.KASIR_SYAHRIYAH_PUTRI, models.RoleEnum.SUPER_ADMIN]))
+):
     student = crud.get_student_by_rfid(db, rfid_uid=uid_rfid)
     if not student:
         raise HTTPException(status_code=404, detail="Kartu RFID tidak terdaftar")
+        
+    # Gender silos for Syahriyah
+    if user_role == models.RoleEnum.KASIR_SYAHRIYAH_PUTRA and student.gender.value != models.GenderEnum.PUTRA.value:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Akses ditolak: Santri ini terdaftar di cluster Putri.")
+    if user_role == models.RoleEnum.KASIR_SYAHRIYAH_PUTRI and student.gender.value != models.GenderEnum.PUTRI.value:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Akses ditolak: Santri ini terdaftar di cluster Putra.")
         
     billings = crud.get_student_billings(db, student_id=student.student_id)
     return billings
@@ -98,11 +122,23 @@ def create_bulk_billings(bulk_request: schemas.BillingBulkCreate, db: Session = 
     return result
 
 @router.post("/tagihan/bayar", response_model=schemas.PaymentTransactionResponse)
-def pay_billing(payment: schemas.PaymentTransactionCreate, db: Session = Depends(get_db)):
+def pay_billing(
+    payment: schemas.PaymentTransactionCreate, 
+    db: Session = Depends(get_db),
+    user_role: models.RoleEnum = Depends(require_role([models.RoleEnum.KASIR_SYAHRIYAH_PUTRA, models.RoleEnum.KASIR_SYAHRIYAH_PUTRI, models.RoleEnum.SUPER_ADMIN]))
+):
     # Verify billing exists
     billing = db.query(models.Billing).filter(models.Billing.id == payment.billing_id).first()
     if not billing:
         raise HTTPException(status_code=404, detail="Data tagihan tidak ditemukan")
+        
+    student = db.query(models.Student).filter(models.Student.student_id == billing.student_id).first()
+    if student:
+        # Gender silos for Syahriyah
+        if user_role == models.RoleEnum.KASIR_SYAHRIYAH_PUTRA and student.gender.value != models.GenderEnum.PUTRA.value:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Akses ditolak: Tagihan milik santri Putri.")
+        if user_role == models.RoleEnum.KASIR_SYAHRIYAH_PUTRI and student.gender.value != models.GenderEnum.PUTRI.value:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Akses ditolak: Tagihan milik santri Putra.")
         
     new_payment = crud.add_billing_payment(
         db=db, 
