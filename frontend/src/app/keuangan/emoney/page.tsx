@@ -39,6 +39,7 @@ export default function EMoneyPage() {
     }, [profile, successMsg, error]);
 
     const loadData = async (uid: string) => {
+        if (!uid || !uid.trim()) return;
         setLoading(true);
         setError(null);
         setSuccessMsg(null);

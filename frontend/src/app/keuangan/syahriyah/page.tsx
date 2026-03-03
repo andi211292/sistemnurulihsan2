@@ -142,6 +142,7 @@ export default function SyahriyahPage() {
     }, [activeGender]);
 
     const loadData = async (uid: string) => {
+        if (!uid || !uid.trim()) return;
         setLoading(true);
         setError(null);
         setSuccessMsg(null);
