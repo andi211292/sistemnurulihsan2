@@ -22,6 +22,7 @@ export default function SantriPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalMode, setModalMode] = useState<"add" | "edit">("add");
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const csvInputRef = useRef<HTMLInputElement>(null);
 
     // Form states
     const [formData, setFormData] = useState({
@@ -109,6 +110,39 @@ export default function SantriPage() {
         } finally {
             setFormLoading(false);
             if (fileInputRef.current) fileInputRef.current.value = "";
+        }
+    };
+
+    const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setFormLoading(true);
+        setError(null);
+
+        try {
+            const formData = new FormData();
+            formData.append("file", file);
+
+            const res = await fetch("http://127.0.0.1:8080/api/students/import_csv", {
+                method: "POST",
+                body: formData
+            });
+
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.detail || "Gagal import massal CSV");
+            }
+
+            const resData = await res.json();
+            alert(`Import Berhasil!\n${resData.data.inserted} data disisipkan, ${resData.data.updated} data diperbarui.`);
+
+            fetchStudents();
+        } catch (err: any) {
+            setError(err.message);
+        } finally {
+            setFormLoading(false);
+            if (csvInputRef.current) csvInputRef.current.value = "";
         }
     };
 
@@ -219,11 +253,25 @@ export default function SantriPage() {
                         📝 Unduh Template Excel
                     </button>
                     <button
+                        onClick={() => csvInputRef.current?.click()}
+                        className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
+                        disabled={formLoading}
+                    >
+                        {formLoading ? "Memproses..." : "📥 Import CSV"}
+                    </button>
+                    <input
+                        type="file"
+                        accept=".csv"
+                        ref={csvInputRef}
+                        onChange={handleCsvUpload}
+                        className="hidden"
+                    />
+                    <button
                         onClick={() => fileInputRef.current?.click()}
                         className="bg-sky-600 hover:bg-sky-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
                         disabled={formLoading}
                     >
-                        {formLoading ? "Memproses Data..." : "📥 Import Excel"}
+                        {formLoading ? "Memproses..." : "📥 Import Excel"}
                     </button>
                     <input
                         type="file"

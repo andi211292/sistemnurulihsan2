@@ -78,6 +78,58 @@ def create_students_bulk(students: List[schemas.StudentCreate], db: Session = De
         db.rollback()
         raise HTTPException(status_code=400, detail=f"Gagal import massal: {str(e)}")
 
+@app.post("/api/students/import_csv", tags=["Students"])
+async def import_students_csv(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    try:
+        content = await file.read()
+        import io
+        import csv
+        
+        # Decode CSV content
+        decoded_content = content.decode('utf-8')
+        csv_reader = csv.DictReader(io.StringIO(decoded_content))
+        
+        students_payload = []
+        for row in csv_reader:
+            # Menggunakan ignore-case lookup untuk flexible headers
+            row_lower = {k.strip().lower(): v for k, v in row.items() if k is not None}
+            
+            nis = row_lower.get('nis')
+            full_name = row_lower.get('nama lengkap')
+            student_class = row_lower.get('kelas')
+            dormitory = row_lower.get('asrama')
+            gender = row_lower.get('gender')
+            rfid_uid = row_lower.get('uid_rfid')
+            
+            if nis and full_name and student_class and dormitory:
+                if gender:
+                    gender = gender.strip().upper()
+                    if gender not in ['PUTRA', 'PUTRI']:
+                        gender = 'PUTRA'
+                else:
+                    gender = 'PUTRA'
+                
+                rfid_uid_val = str(rfid_uid).strip() if (rfid_uid and str(rfid_uid).strip().lower() != 'none') else None
+                
+                st = schemas.StudentCreate(
+                    nis=str(nis).strip(),
+                    full_name=str(full_name).strip(),
+                    student_class=str(student_class).strip(),
+                    dormitory=str(dormitory).strip(),
+                    gender=gender,
+                    rfid_uid=rfid_uid_val
+                )
+                students_payload.append(st)
+                
+        if not students_payload:
+            raise HTTPException(status_code=400, detail="Tidak ada data valid yang bisa diimport. Cek format header CSV.")
+            
+        result = crud.bulk_upsert_students(db=db, students=students_payload)
+        return {"message": "Import massal CSV berhasil", "data": result}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Gagal memproses file CSV: {str(e)}")
+
 @app.post("/api/students/import_excel", tags=["Students"])
 async def import_students_excel(file: UploadFile = File(...), db: Session = Depends(get_db)):
     try:
