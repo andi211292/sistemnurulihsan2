@@ -12,6 +12,7 @@ interface Student {
     student_class: string;
     dormitory: string;
     gender: "PUTRA" | "PUTRI";
+    batas_jajan_harian?: number;
 }
 
 export default function SantriPage() {
@@ -34,6 +35,7 @@ export default function SantriPage() {
         student_class: "",
         dormitory: "",
         gender: "PUTRA" as "PUTRA" | "PUTRI",
+        batas_jajan_harian: 15000,
     });
     const [formLoading, setFormLoading] = useState(false);
     const [formError, setFormError] = useState<string | null>(null);
@@ -60,7 +62,7 @@ export default function SantriPage() {
 
     const openAddModal = () => {
         setModalMode("add");
-        setFormData({ id: 0, nis: "", rfid_uid: "", full_name: "", student_class: "", dormitory: "", gender: "PUTRA" });
+        setFormData({ id: 0, nis: "", rfid_uid: "", full_name: "", student_class: "", dormitory: "", gender: "PUTRA", batas_jajan_harian: 15000 });
         setFormError(null);
         setIsModalOpen(true);
     };
@@ -76,6 +78,7 @@ export default function SantriPage() {
             student_class: student.student_class,
             dormitory: student.dormitory,
             gender: student.gender,
+            batas_jajan_harian: student.batas_jajan_harian !== undefined && student.batas_jajan_harian !== null ? student.batas_jajan_harian : 15000,
         });
         setFormError(null);
         setIsModalOpen(true);
@@ -180,7 +183,8 @@ export default function SantriPage() {
                         full_name: formData.full_name,
                         student_class: formData.student_class,
                         dormitory: formData.dormitory,
-                        gender: formData.gender
+                        gender: formData.gender,
+                        batas_jajan_harian: formData.batas_jajan_harian
                     })
                 });
                 if (!res.ok) {
@@ -196,7 +200,8 @@ export default function SantriPage() {
                         full_name: formData.full_name,
                         student_class: formData.student_class,
                         dormitory: formData.dormitory,
-                        gender: formData.gender
+                        gender: formData.gender,
+                        batas_jajan_harian: formData.batas_jajan_harian
                     })
                 });
 
@@ -417,6 +422,17 @@ export default function SantriPage() {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">UID RFID (Opsional)</label>
                                 <input type="text" value={formData.rfid_uid} onChange={e => setFormData({ ...formData, rfid_uid: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500" placeholder="TAP kartu disini..." />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Limit Jajan Harian (E-Money)</label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <span className="text-gray-500 sm:text-sm">Rp</span>
+                                    </div>
+                                    <input type="number" required min="0" step="500" value={formData.batas_jajan_harian} onChange={e => setFormData({ ...formData, batas_jajan_harian: parseInt(e.target.value) || 0 })} className="w-full pl-9 px-3 py-2 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500" placeholder="15000" />
+                                </div>
+                                <p className="mt-1 text-xs text-gray-500">Membatasi transaksi pengeluaran santri di hari yang sama.</p>
                             </div>
 
                             <div className="pt-4 flex justify-end gap-3 border-t border-gray-100">

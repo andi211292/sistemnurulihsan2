@@ -36,6 +36,7 @@ export default function Sidebar() {
         { name: "👨‍🏫 Data Guru", path: "/guru", allowed: ["SUPER_ADMIN", "PENGURUS_SEKOLAH"] },
         { name: "⚖️ Kedisiplinan", path: "/kedisiplinan", allowed: ["SUPER_ADMIN", "PENGURUS_SANTRI", "GURU_BP", "PENGURUS_KEAMANAN"] },
         { name: "🖨️ Laporan Bulanan", path: "/laporan", allowed: ["SUPER_ADMIN"] },
+        { name: "📊 Laporan Keuangan", path: "/laporan-keuangan", allowed: ["SUPER_ADMIN", "KASIR_KOP_PUSAT"] },
     ];
 
     const filteredMenus = menuItems.filter(item => item.allowed.includes(role));

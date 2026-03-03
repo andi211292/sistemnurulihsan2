@@ -75,7 +75,8 @@ async def sync_data_to_cloud():
                         Column('dormitory', String),
                         Column('gender', String),
                         Column('guardian_id', Integer),
-                        Column('emoney_balance', Float)
+                        Column('emoney_balance', Float),
+                        Column('batas_jajan_harian', Integer)
                     )
 
                     students_to_sync = local_db.query(models.Student).all()
@@ -93,7 +94,8 @@ async def sync_data_to_cloud():
                                 "dormitory": student.dormitory,
                                 "gender": student.gender.value if hasattr(student.gender, 'value') else student.gender,
                                 "guardian_id": student.guardian_id,
-                                "emoney_balance": emoney_balance
+                                "emoney_balance": emoney_balance,
+                                "batas_jajan_harian": student.batas_jajan_harian if student.batas_jajan_harian is not None else 15000
                             }
                             stmt = pg_insert(cloud_student_table).values(student_dict)
                             # Upsert logic (Update if exists) based on student_id primary key

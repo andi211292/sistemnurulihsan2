@@ -44,11 +44,29 @@ def process_transaction(
     wallet = crud.get_wallet_by_student(db, student_id=student.student_id)
 
     # 3. Validate Balance for PAYMENT
-    if request.type == models.TransactionTypeEnum.PAYMENT and wallet.balance < request.amount:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Saldo Tidak Mencukupi. Sisa saldo E-Money: Rp {wallet.balance:,.0f}"
-        )
+    if request.type == models.TransactionTypeEnum.PAYMENT:
+        if wallet.balance < request.amount:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Saldo Tidak Mencukupi. Sisa saldo E-Money: Rp {wallet.balance:,.0f}"
+            )
+        
+        # 3.5 Validate Daily Jajan Limit for PAYMENT
+        # Calculate total spend today
+        today = datetime.now().date()
+        from sqlalchemy import func
+        total_spend_today = db.query(func.sum(models.Transaction.amount)).filter(
+            models.Transaction.wallet_id == wallet.wallet_id,
+            models.Transaction.type == models.TransactionTypeEnum.PAYMENT,
+            func.date(models.Transaction.created_at) == today
+        ).scalar() or 0.0
+
+        limit = student.batas_jajan_harian if student.batas_jajan_harian is not None else 15000
+        if (total_spend_today + request.amount) > limit:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Transaksi ditolak: Limit jajan harian santri sudah habis. (Limit: Rp {limit:,.0f}, Terpakai: Rp {total_spend_today:,.0f})"
+            )
 
     # 4. Create Transaction and Update Wallet
     new_trans = crud.add_transaction(

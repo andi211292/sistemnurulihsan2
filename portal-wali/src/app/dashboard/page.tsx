@@ -10,6 +10,7 @@ interface Student {
     full_name: string;
     student_class: string;
     dormitory: string;
+    batas_jajan_harian: number;
 }
 
 interface Wallet {
@@ -62,6 +63,13 @@ interface MealLog {
     timestamp: string;
 }
 
+interface EmoneyTransaction {
+    transaction_id: number;
+    amount: number;
+    type: string;
+    created_at: string;
+}
+
 export default function DashboardPage() {
     const router = useRouter();
 
@@ -73,6 +81,7 @@ export default function DashboardPage() {
     const [meals, setMeals] = useState<MealLog[]>([]);
     const [violations, setViolations] = useState<StudentViolation[]>([]);
     const [leaves, setLeaves] = useState<StudentLeave[]>([]);
+    const [todaySpend, setTodaySpend] = useState<number>(0);
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -107,10 +116,28 @@ export default function DashboardPage() {
             // 2. Fetch Wallet
             const { data: wData } = await supabase
                 .from('wallets')
-                .select('balance')
+                .select('wallet_id, balance')
                 .eq('student_id', studentId)
                 .single();
-            if (wData) setWallet(wData);
+            if (wData) {
+                setWallet({ balance: wData.balance });
+
+                // Fetch today's emoney transactions
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                const { data: transData } = await supabase
+                    .from('transactions')
+                    .select('amount, type')
+                    .eq('wallet_id', wData.wallet_id)
+                    .eq('type', 'PAYMENT')
+                    .gte('created_at', today.toISOString());
+
+                if (transData) {
+                    const spend = transData.reduce((acc, curr) => acc + curr.amount, 0);
+                    setTodaySpend(spend);
+                }
+            }
 
             // 3. Fetch Billings (Syahriyah)
             const { data: bData } = await supabase
@@ -247,9 +274,24 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-emerald-50 rounded-2xl p-4 border border-emerald-100">
-                            <p className="text-emerald-800 text-xs font-semibold uppercase tracking-wider mb-1">E-Money</p>
-                            <p className="text-xl font-bold text-emerald-900">{wallet ? formatRupiah(wallet.balance) : "Rp 0"}</p>
+                        <div className="bg-emerald-50 rounded-2xl p-4 border border-emerald-100 flex flex-col justify-between">
+                            <div>
+                                <p className="text-emerald-800 text-xs font-semibold uppercase tracking-wider mb-1">E-Money</p>
+                                <p className="text-xl font-bold text-emerald-900">{wallet ? formatRupiah(wallet.balance) : "Rp 0"}</p>
+                            </div>
+                            <div className="mt-3 pt-3 border-t border-emerald-200/50">
+                                <div className="flex justify-between items-center mb-1">
+                                    <span className="text-[10px] text-emerald-700 font-medium">Sisa Jajan Hari Ini:</span>
+                                    <span className="text-[10px] font-bold text-emerald-900">{formatRupiah((student.batas_jajan_harian || 15000) - todaySpend)}</span>
+                                </div>
+                                <div className="w-full bg-emerald-200 rounded-full h-1.5">
+                                    <div
+                                        className={`bg-emerald-500 h-1.5 rounded-full ${todaySpend >= (student.batas_jajan_harian || 15000) ? 'bg-red-500' : ''}`}
+                                        style={{ width: `${Math.min((todaySpend / (student.batas_jajan_harian || 15000)) * 100, 100)}%` }}
+                                    ></div>
+                                </div>
+                                <p className="text-[9px] text-emerald-600 mt-1 text-right">Limit Harian: {formatRupiah(student.batas_jajan_harian || 15000)}</p>
+                            </div>
                         </div>
 
                         <div className={`rounded-2xl p-4 border ${billings.filter(b => b.status !== 'PAID').length > 0 ? "bg-red-50 border-red-100" : "bg-blue-50 border-blue-100"}`}>
