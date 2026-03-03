@@ -296,14 +296,23 @@ def download_laporan_keuangan(
     import csv
     import io
     from fastapi.responses import StreamingResponse
+    from sqlalchemy import func, or_
 
-    bulan_str = str(bulan)
+    # Database stores month EITHER as number string ("3") or Indonesian name ("Maret")
+    NAMA_BULAN = ["", "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+                  "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+    bulan_str_angka = str(bulan)
+    bulan_str_nama  = NAMA_BULAN[bulan] if 1 <= bulan <= 12 else str(bulan)
     tahun_str = str(tahun)
 
+    month_filter = or_(
+        models.Billing.month == bulan_str_angka,
+        models.Billing.month == bulan_str_nama,
+    )
+
     # 1. Total Pemasukan Syahriyah (billing yang PAID di bulan/tahun tsb)
-    from sqlalchemy import func
     billings_paid = db.query(models.Billing).filter(
-        models.Billing.month == bulan_str,
+        month_filter,
         models.Billing.year == tahun_str,
         models.Billing.status == models.BillingStatusEnum.PAID
     ).all()
@@ -311,7 +320,7 @@ def download_laporan_keuangan(
 
     # 2. Perlu data pembayaran parsial juga (PARTIAL)
     billings_partial = db.query(models.Billing).filter(
-        models.Billing.month == bulan_str,
+        month_filter,
         models.Billing.year == tahun_str,
         models.Billing.status == models.BillingStatusEnum.PARTIAL
     ).all()
@@ -383,9 +392,14 @@ def get_tunggakan_syahriyah(
     import io
     from fastapi.responses import StreamingResponse
     from sqlalchemy.orm import aliased
-    from sqlalchemy import and_
+    from sqlalchemy import and_, or_
 
-    bulan_str = str(bulan)
+    # Database stores month EITHER as number string ("3") or Indonesian name ("Maret")
+    # We must search for BOTH to handle data from all sources
+    NAMA_BULAN = ["", "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+                  "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+    bulan_str_angka = str(bulan)   # "3"
+    bulan_str_nama  = NAMA_BULAN[bulan] if 1 <= bulan <= 12 else str(bulan)  # "Maret"
     tahun_str = str(tahun)
 
     # LEFT JOIN: ambil SEMUA santri, gabungkan dengan billing bulan ini (jika ada)
@@ -398,7 +412,11 @@ def get_tunggakan_syahriyah(
             BillingAlias,
             and_(
                 BillingAlias.student_id == models.Student.student_id,
-                BillingAlias.month == bulan_str,
+                # Match BOTH formats: "3" (angka) atau "Maret" (nama) 
+                or_(
+                    BillingAlias.month == bulan_str_angka,
+                    BillingAlias.month == bulan_str_nama,
+                ),
                 BillingAlias.year == tahun_str,
             )
         )
