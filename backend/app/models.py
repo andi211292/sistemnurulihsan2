@@ -48,7 +48,9 @@ class Student(Base):
     nis = Column(String, unique=True, index=True)
     rfid_uid = Column(String, unique=True, index=True, nullable=True)
     full_name = Column(String)
-    student_class = Column(String)
+    student_class = Column(String)        # Kelas diniyah (Al-Imrithi, dll)
+    kelas_sekolah = Column(Integer, nullable=True)         # Kelas formal 7-12
+    tingkatan_diniyah = Column(String, nullable=True)      # Jurrumiyah, Imrithi, Alfiyah, dll
     dormitory = Column(String)
     gender = Column(SqlEnum(GenderEnum, name="gender_enum"), default=GenderEnum.PUTRA)
     guardian_id = Column(Integer, ForeignKey("guardians.guardian_id"))
@@ -92,24 +94,48 @@ class MealLog(Base):
     sync_status = Column(Boolean, default=False)
 
 class AttendanceTypeEnum(str, enum.Enum):
-    SHALAT_SUBUH = "SHALAT_SUBUH"
-    KLASIKAL = "KLASIKAL"
+    # Shalat Jamaah
+    SHALAT_SUBUH   = "SHALAT_SUBUH"
+    SHALAT_DZUHUR  = "SHALAT_DZUHUR"
+    SHALAT_ASHAR   = "SHALAT_ASHAR"
+    SHALAT_MAGHRIB = "SHALAT_MAGHRIB"
+    SHALAT_ISYA    = "SHALAT_ISYA"
+    # Sekolah & Diniyah
+    SEKOLAH_PAGI   = "SEKOLAH_PAGI"
+    DINIYAH_SORE   = "DINIYAH_SORE"
+    KLASIKAL       = "KLASIKAL"   # legacy
+    # Keberadaan Malam
+    MALAM_KAMAR    = "MALAM_KAMAR"
 
 class AttendanceStatusEnum(str, enum.Enum):
     HADIR = "HADIR"
-    ALPA = "ALPA"
+    ALPA  = "ALPA"
     SAKIT = "SAKIT"
-    IZIN = "IZIN"
+    IZIN  = "IZIN"
+
+class AttendanceDevice(Base):
+    """Daftar alat ESP32 RFID yang terdaftar di sistem."""
+    __tablename__ = "attendance_devices"
+
+    id          = Column(Integer, primary_key=True, index=True)
+    device_id   = Column(String, unique=True, index=True)  # contoh: "ESP32-MASJID-01"
+    nama_lokasi = Column(String)                           # contoh: "Masjid Utama"
+    tipe_sesi   = Column(String)                           # AttendanceTypeEnum value
+    jam_mulai   = Column(Integer, default=0)               # jam aktif mulai (0-23)
+    jam_selesai = Column(Integer, default=23)              # jam aktif selesai (0-23)
+    is_active   = Column(Boolean, default=True)
 
 class Attendance(Base):
     __tablename__ = "attendances"
 
     attendance_id = Column(Integer, primary_key=True, index=True)
-    student_id = Column(Integer, ForeignKey("students.student_id"))
-    type = Column(SqlEnum(AttendanceTypeEnum))
-    status = Column(SqlEnum(AttendanceStatusEnum))
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
-    sync_status = Column(Boolean, default=False)
+    student_id    = Column(Integer, ForeignKey("students.student_id"))
+    type          = Column(SqlEnum(AttendanceTypeEnum))
+    status        = Column(SqlEnum(AttendanceStatusEnum))
+    device_id     = Column(String, nullable=True)          # dari device mana
+    sesi          = Column(String, nullable=True)          # nama sesi, misal "SHALAT_SUBUH"
+    timestamp     = Column(DateTime, default=datetime.datetime.utcnow)
+    sync_status   = Column(Boolean, default=False)
 
 class TahfidzRecord(Base):
     __tablename__ = "tahfidz_records"

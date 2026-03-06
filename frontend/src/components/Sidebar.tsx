@@ -30,6 +30,8 @@ export default function Sidebar() {
         { name: "Beranda", path: "/", allowed: ["SUPER_ADMIN", "KASIR_KOP_PUSAT", "KASIR_KOP_LUAR", "KASIR_SYAHRIYAH", "PENGURUS_SANTRI", "PENGURUS_SEKOLAH", "GURU_BP", "PENGURUS_KEAMANAN"] },
         { name: "Data Santri", path: "/santri", allowed: ["SUPER_ADMIN"] },
         { name: "Live Monitor RFID", path: "/monitor", allowed: ["SUPER_ADMIN", "PENGURUS_KEAMANAN"] },
+        { name: "📍 Monitor Absensi", path: "/absensi", allowed: ["SUPER_ADMIN", "PENGURUS_SANTRI", "PENGURUS_SEKOLAH", "PENGURUS_KEAMANAN"] },
+        { name: "🔧 Kelola Alat RFID", path: "/absensi/devices", allowed: ["SUPER_ADMIN"] },
         { name: "Jurnal Tahfidz", path: "/tahfidz", allowed: ["SUPER_ADMIN", "PENGURUS_SANTRI"] },
         { name: "Koperasi & E-Money", path: "/keuangan/emoney", allowed: ["SUPER_ADMIN", "KASIR_KOP_PUSAT", "KASIR_KOP_LUAR"] },
         { name: "Tagihan Syahriyah", path: "/keuangan/syahriyah", allowed: ["SUPER_ADMIN", "KASIR_SYAHRIYAH_PUTRA", "KASIR_SYAHRIYAH_PUTRI"] },
