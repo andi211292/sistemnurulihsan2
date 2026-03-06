@@ -10,6 +10,8 @@ interface Student {
     rfid_uid: string | null;
     full_name: string;
     student_class: string;
+    kelas_sekolah?: number | null;
+    tingkatan_diniyah?: string | null;
     dormitory: string;
     gender: "PUTRA" | "PUTRI";
     batas_jajan_harian?: number;
@@ -33,6 +35,8 @@ export default function SantriPage() {
         rfid_uid: "",
         full_name: "",
         student_class: "",
+        kelas_sekolah: "" as string | number,
+        tingkatan_diniyah: "",
         dormitory: "",
         gender: "PUTRA" as "PUTRA" | "PUTRI",
         batas_jajan_harian: 15000,
@@ -62,20 +66,21 @@ export default function SantriPage() {
 
     const openAddModal = () => {
         setModalMode("add");
-        setFormData({ id: 0, nis: "", rfid_uid: "", full_name: "", student_class: "", dormitory: "", gender: "PUTRA", batas_jajan_harian: 15000 });
+        setFormData({ id: 0, nis: "", rfid_uid: "", full_name: "", student_class: "", kelas_sekolah: "", tingkatan_diniyah: "", dormitory: "", gender: "PUTRA", batas_jajan_harian: 15000 });
         setFormError(null);
         setIsModalOpen(true);
     };
 
     const openEditModal = (student: Student) => {
         setModalMode("edit");
-        // Store student ID in formData to use it during submit
         setFormData({
             id: student.student_id,
             nis: student.nis,
             rfid_uid: student.rfid_uid || "",
             full_name: student.full_name,
             student_class: student.student_class,
+            kelas_sekolah: student.kelas_sekolah ?? "",
+            tingkatan_diniyah: student.tingkatan_diniyah || "",
             dormitory: student.dormitory,
             gender: student.gender,
             batas_jajan_harian: student.batas_jajan_harian !== undefined && student.batas_jajan_harian !== null ? student.batas_jajan_harian : 15000,
@@ -155,10 +160,22 @@ export default function SantriPage() {
             {
                 "NIS": "12345",
                 "Nama Lengkap": "Ahmad Fulan",
-                "Kelas": "7A",
+                "Kelas_Diniyah": "Al-Imrithi",
+                "Tingkatan_Diniyah": "Imrithi",
+                "Kelas_Sekolah": 8,
                 "Asrama": "Gedung Baru",
                 "Gender": "PUTRA",
-                "UID_RFID": "KARTU-001"
+                "UID_RFID": "4265130963"
+            },
+            {
+                "NIS": "12346",
+                "Nama Lengkap": "Siti Fatimah",
+                "Kelas_Diniyah": "Alfiyah 1",
+                "Tingkatan_Diniyah": "Alfiyah 1",
+                "Kelas_Sekolah": 10,
+                "Asrama": "Gedung Putri",
+                "Gender": "PUTRI",
+                "UID_RFID": ""
             }
         ];
 
@@ -174,18 +191,21 @@ export default function SantriPage() {
         setFormError(null);
 
         try {
+            const payload = {
+                nis: formData.nis,
+                rfid_uid: formData.rfid_uid || null,
+                full_name: formData.full_name,
+                student_class: formData.student_class,
+                kelas_sekolah: formData.kelas_sekolah !== "" ? Number(formData.kelas_sekolah) : null,
+                tingkatan_diniyah: formData.tingkatan_diniyah || null,
+                dormitory: formData.dormitory,
+                gender: formData.gender,
+                batas_jajan_harian: formData.batas_jajan_harian
+            };
             if (modalMode === "add") {
                 const res = await apiFetch("http://127.0.0.1:8080/api/students/", {
                     method: "POST",
-                    body: JSON.stringify({
-                        nis: formData.nis,
-                        rfid_uid: formData.rfid_uid || null,
-                        full_name: formData.full_name,
-                        student_class: formData.student_class,
-                        dormitory: formData.dormitory,
-                        gender: formData.gender,
-                        batas_jajan_harian: formData.batas_jajan_harian
-                    })
+                    body: JSON.stringify(payload)
                 });
                 if (!res.ok) {
                     const errData = await res.json();
@@ -194,15 +214,7 @@ export default function SantriPage() {
             } else {
                 const res = await apiFetch(`http://127.0.0.1:8080/api/students/${formData.id}`, {
                     method: "PUT",
-                    body: JSON.stringify({
-                        nis: formData.nis,
-                        rfid_uid: formData.rfid_uid || null,
-                        full_name: formData.full_name,
-                        student_class: formData.student_class,
-                        dormitory: formData.dormitory,
-                        gender: formData.gender,
-                        batas_jajan_harian: formData.batas_jajan_harian
-                    })
+                    body: JSON.stringify(payload)
                 });
 
                 if (!res.ok) {
@@ -401,7 +413,7 @@ export default function SantriPage() {
                                 <input required type="text" value={formData.full_name} onChange={e => setFormData({ ...formData, full_name: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500" placeholder="Ahmad Abdullah" />
                             </div>
 
-                            <div className="grid grid-cols-3 gap-4">
+                            <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
                                     <select value={formData.gender} onChange={e => setFormData({ ...formData, gender: e.target.value as "PUTRA" | "PUTRI" })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500">
@@ -410,12 +422,40 @@ export default function SantriPage() {
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Kelas</label>
-                                    <input required type="text" value={formData.student_class} onChange={e => setFormData({ ...formData, student_class: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500" placeholder="10A" />
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Asrama / Kamar</label>
+                                    <input required type="text" value={formData.dormitory} onChange={e => setFormData({ ...formData, dormitory: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500" placeholder="Al-Fatih" />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Kelas Diniyah</label>
+                                    <input type="text" value={formData.student_class} onChange={e => setFormData({ ...formData, student_class: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500" placeholder="Al-Imrithi" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Asrama</label>
-                                    <input required type="text" value={formData.dormitory} onChange={e => setFormData({ ...formData, dormitory: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500" placeholder="Al-Fatih" />
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Tingkatan Diniyah</label>
+                                    <select value={formData.tingkatan_diniyah} onChange={e => setFormData({ ...formData, tingkatan_diniyah: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500">
+                                        <option value="">— Pilih —</option>
+                                        <option value="Jurrumiyah">Jurrumiyah</option>
+                                        <option value="Imrithi">Imrithi</option>
+                                        <option value="Alfiyah 1">Alfiyah 1</option>
+                                        <option value="Alfiyah 2">Alfiyah 2</option>
+                                        <option value="Tahfidz Quran">Tahfidz Quran</option>
+                                        <option value="Takhassus">Takhassus</option>
+                                        <option value="Al-Maqsud">Al-Maqsud</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Kelas Sekolah</label>
+                                    <select value={formData.kelas_sekolah} onChange={e => setFormData({ ...formData, kelas_sekolah: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500">
+                                        <option value="">— Pilih —</option>
+                                        <option value={7}>Kelas 7</option>
+                                        <option value={8}>Kelas 8</option>
+                                        <option value={9}>Kelas 9</option>
+                                        <option value={10}>Kelas 10</option>
+                                        <option value={11}>Kelas 11</option>
+                                        <option value={12}>Kelas 12</option>
+                                    </select>
                                 </div>
                             </div>
 

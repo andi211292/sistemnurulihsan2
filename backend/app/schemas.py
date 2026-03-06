@@ -25,8 +25,11 @@ class StudentBase(BaseModel):
     rfid_uid: Optional[str] = None
     full_name: str
     student_class: str
+    kelas_sekolah: Optional[int] = None
+    tingkatan_diniyah: Optional[str] = None
     dormitory: str
     gender: GenderEnum = GenderEnum.PUTRA
+    batas_jajan_harian: Optional[int] = 15000
 
 class StudentCreate(StudentBase):
     guardian_id: Optional[int] = None
@@ -34,6 +37,8 @@ class StudentCreate(StudentBase):
 class StudentResponse(StudentBase):
     student_id: int
     guardian_id: Optional[int] = None
+    kelas_sekolah: Optional[int] = None
+    tingkatan_diniyah: Optional[str] = None
 
     class Config:
         from_attributes = True

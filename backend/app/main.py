@@ -157,11 +157,15 @@ async def import_students_excel(file: UploadFile = File(...), db: Session = Depe
                     
             nis = row_dict.get('nis')
             full_name = row_dict.get('nama lengkap')
-            student_class = row_dict.get('kelas')
+            # Support both 'kelas' (lama) dan 'kelas_diniyah' (baru)
+            student_class = row_dict.get('kelas_diniyah') or row_dict.get('kelas')
             dormitory = row_dict.get('asrama')
             gender = row_dict.get('gender')
             rfid_uid = row_dict.get('uid_rfid')
-            
+            tingkatan_diniyah = row_dict.get('tingkatan_diniyah')
+            kelas_sekolah_raw = row_dict.get('kelas_sekolah')
+            kelas_sekolah = int(kelas_sekolah_raw) if kelas_sekolah_raw and str(kelas_sekolah_raw).isdigit() else None
+
             if nis and full_name and student_class and dormitory:
                 if gender:
                     gender = gender.upper()
@@ -169,20 +173,22 @@ async def import_students_excel(file: UploadFile = File(...), db: Session = Depe
                         gender = 'PUTRA'
                 else:
                     gender = 'PUTRA'
-                    
+
                 st = schemas.StudentCreate(
                     nis=nis,
                     full_name=full_name,
                     student_class=student_class,
+                    tingkatan_diniyah=tingkatan_diniyah or None,
+                    kelas_sekolah=kelas_sekolah,
                     dormitory=dormitory,
                     gender=gender,
                     rfid_uid=rfid_uid
                 )
                 students_payload.append(st)
-                
+
         if not students_payload:
             raise HTTPException(status_code=400, detail="Tidak ada data valid yang bisa diimport. Cek format header Excel.")
-            
+
         result = crud.bulk_upsert_students(db=db, students=students_payload)
         return {"message": "Import massal Excel berhasil", "data": result}
     except Exception as e:

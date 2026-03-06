@@ -184,7 +184,7 @@ def absensi_tap(request: AbsensiTapRequest, db: Session = Depends(get_db)):
     }
     attendance_type = sesi_ke_type.get(sesi_aktif, models.AttendanceTypeEnum.KLASIKAL)
 
-    # 7. Simpan ke database
+    # 7. Simpan ke database — Attendance
     attendance = models.Attendance(
         student_id=student.student_id,
         type=attendance_type,
@@ -194,6 +194,21 @@ def absensi_tap(request: AbsensiTapRequest, db: Session = Depends(get_db)):
         timestamp=now
     )
     db.add(attendance)
+
+    # 8. Juga catat ke RFIDLog agar Live Monitor ikut update
+    try:
+        rfid_log = models.RFIDLog(
+            rfid_uid=uid,
+            student_id=student.student_id,
+            student_name=student.full_name,
+            student_class=student.student_class,
+            action=f"ABSEN {sesi_aktif}",
+            timestamp=now
+        )
+        db.add(rfid_log)
+    except Exception:
+        pass  # RFIDLog bersifat opsional, tidak ganggu proses utama
+
     db.commit()
 
     return {
@@ -255,7 +270,9 @@ def get_rekap_absensi(
         hadir_ids = set()
         izin_ids  = set()
         for att in all_att:
-            if att.sesi in sesi_list:
+            # Cocokkan sesi, atau NULL/KLASIKAL ikut kategori sekolah
+            att_sesi = att.sesi or "KLASIKAL"
+            if att_sesi in sesi_list:
                 if att.status == models.AttendanceStatusEnum.HADIR:
                     hadir_ids.add(att.student_id)
                 elif att.status in (
@@ -278,7 +295,9 @@ def get_rekap_absensi(
     # Detail per sesi
     sesi_detail = {}
     for sesi in SHALAT_SESI + SEKOLAH_SESI + KAMAR_SESI:
-        hadir = sum(1 for a in all_att if a.sesi == sesi and a.status == models.AttendanceStatusEnum.HADIR)
+        hadir = sum(1 for a in all_att
+                    if (a.sesi or "KLASIKAL") == sesi
+                    and a.status == models.AttendanceStatusEnum.HADIR)
         sesi_detail[sesi] = hadir
 
     return {
