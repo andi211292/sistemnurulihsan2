@@ -22,7 +22,7 @@ export default function LoginPage() {
             formData.append("username", username);
             formData.append("password", password);
 
-            const res = await fetch("http://127.0.0.1:8080/api/auth/login", {
+            const res = await fetch("http://50.50.50.10:8080/api/auth/login", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/x-www-form-urlencoded",

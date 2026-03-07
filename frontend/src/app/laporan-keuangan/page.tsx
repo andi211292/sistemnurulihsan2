@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://50.50.50.10:8080";
 
 const NAMA_BULAN = [
     "", "Januari", "Februari", "Maret", "April", "Mei", "Juni",

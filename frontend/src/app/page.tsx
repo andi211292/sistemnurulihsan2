@@ -18,14 +18,14 @@ export default function Home() {
     const fetchStats = async () => {
       try {
         // Get total students
-        const resStudents = await apiFetch("http://127.0.0.1:8080/api/students/");
+        const resStudents = await apiFetch("http://50.50.50.10:8080/api/students/");
         if (resStudents.ok) {
           const data = await resStudents.json();
           setTotalStudents(data.length);
         }
 
         // Get empty classes
-        const resEmpty = await apiFetch("http://127.0.0.1:8080/api/academic/empty-classes");
+        const resEmpty = await apiFetch("http://50.50.50.10:8080/api/academic/empty-classes");
         if (resEmpty.ok) {
           const dataObj = await resEmpty.json();
           if (Array.isArray(dataObj)) {

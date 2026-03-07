@@ -63,21 +63,21 @@ export default function GuruPage() {
     // Fetchers
     const fetchTeachers = async () => {
         try {
-            const res = await apiFetch("http://127.0.0.1:8080/api/academic/teachers");
+            const res = await apiFetch("http://50.50.50.10:8080/api/academic/teachers");
             if (res.ok) setTeachers(await res.json());
         } catch (e) { }
     };
 
     const fetchSchedules = async () => {
         try {
-            const res = await apiFetch("http://127.0.0.1:8080/api/academic/schedules");
+            const res = await apiFetch("http://50.50.50.10:8080/api/academic/schedules");
             if (res.ok) setSchedules(await res.json());
         } catch (e) { }
     };
 
     const fetchAttendances = async () => {
         try {
-            const res = await apiFetch("http://127.0.0.1:8080/api/academic/teacher-attendances");
+            const res = await apiFetch("http://50.50.50.10:8080/api/academic/teacher-attendances");
             if (res.ok) setAttendances(await res.json());
         } catch (e) { }
     };
@@ -85,7 +85,7 @@ export default function GuruPage() {
     const fetchEmptyClasses = async () => {
         setLoading(true);
         try {
-            const res = await apiFetch("http://127.0.0.1:8080/api/academic/empty-classes");
+            const res = await apiFetch("http://50.50.50.10:8080/api/academic/empty-classes");
             if (res.ok) setEmptyClasses(await res.json());
         } catch (e) { } finally { setLoading(false); }
     };
@@ -103,7 +103,7 @@ export default function GuruPage() {
     // Handlers
     const handleAddTeacher = async (e: React.FormEvent) => {
         e.preventDefault();
-        const res = await apiFetch("http://127.0.0.1:8080/api/academic/teachers", {
+        const res = await apiFetch("http://50.50.50.10:8080/api/academic/teachers", {
             method: "POST", body: JSON.stringify(formTeacher)
         });
         if (res.ok) {
@@ -113,7 +113,7 @@ export default function GuruPage() {
 
     const handleAddSchedule = async (e: React.FormEvent) => {
         e.preventDefault();
-        const res = await apiFetch("http://127.0.0.1:8080/api/academic/schedules", {
+        const res = await apiFetch("http://50.50.50.10:8080/api/academic/schedules", {
             method: "POST",
             body: JSON.stringify({ ...formSchedule, teacher_id: parseInt(formSchedule.teacher_id) })
         });
@@ -128,7 +128,7 @@ export default function GuruPage() {
         const sched = schedules.find(s => s.schedule_id === parseInt(attScheduleId));
         if (!sched) return;
 
-        const res = await apiFetch("http://127.0.0.1:8080/api/academic/teacher-attendances", {
+        const res = await apiFetch("http://50.50.50.10:8080/api/academic/teacher-attendances", {
             method: "POST",
             body: JSON.stringify({
                 teacher_id: sched.teacher_id,

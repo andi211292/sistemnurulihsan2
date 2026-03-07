@@ -56,7 +56,7 @@ export default function TahfidzPage() {
         setProfile(null);
 
         try {
-            const res = await apiFetch(`http://127.0.0.1:8080/api/tahfidz/scan/${rfidInput}`);
+            const res = await apiFetch(`http://50.50.50.10:8080/api/tahfidz/scan/${rfidInput}`);
             if (!res.ok) {
                 if (res.status === 404) throw new Error("Santri dengan kartu ini tidak ditemukan");
                 throw new Error("Terjadi kesalahan sistem");
@@ -93,7 +93,7 @@ export default function TahfidzPage() {
                 date_recorded: new Date().toISOString().split('T')[0] // YYYY-MM-DD
             };
 
-            const res = await apiFetch("http://127.0.0.1:8080/api/tahfidz/input", {
+            const res = await apiFetch("http://50.50.50.10:8080/api/tahfidz/input", {
                 method: "POST",
                 body: JSON.stringify(payload)
             });

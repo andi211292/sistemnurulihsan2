@@ -98,7 +98,7 @@ export default function SyahriyahPage() {
         // Fetch all students for the autocomplete
         const fetchStudents = async () => {
             try {
-                const res = await apiFetch("http://127.0.0.1:8080/api/students/");
+                const res = await apiFetch("http://50.50.50.10:8080/api/students/");
                 if (res.ok) setStudentsList(await res.json());
             } catch (err) {
                 console.error("Gagal mengambil daftar santri");
@@ -154,7 +154,7 @@ export default function SyahriyahPage() {
         setBlError(null);
         setBlSuccess(null);
         try {
-            const res = await apiFetch("http://127.0.0.1:8080/api/keuangan/syahriyah/bayar-langsung", {
+            const res = await apiFetch("http://50.50.50.10:8080/api/keuangan/syahriyah/bayar-langsung", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -186,7 +186,7 @@ export default function SyahriyahPage() {
             if (rekapMonth && rekapMonth !== "Semua") params.append("month", rekapMonth);
             if (rekapYear && rekapYear !== "Semua") params.append("year", rekapYear);
 
-            const res = await apiFetch(`http://127.0.0.1:8080/api/keuangan/tagihan/rekap?${params.toString()}`);
+            const res = await apiFetch(`http://50.50.50.10:8080/api/keuangan/tagihan/rekap?${params.toString()}`);
             if (!res.ok) throw new Error("Gagal mengambil data rekap");
             const data = await res.json();
             setRekapData(data);
@@ -222,7 +222,7 @@ export default function SyahriyahPage() {
 
         try {
             // Fetch profile
-            const profileRes = await apiFetch(`http://127.0.0.1:8080/api/keuangan/profil/${uid}`);
+            const profileRes = await apiFetch(`http://50.50.50.10:8080/api/keuangan/profil/${uid}`);
             if (!profileRes.ok) {
                 if (profileRes.status === 404) throw new Error("Santri dengan kartu RFID ini tidak terdaftar");
                 throw new Error("Gagal mengambil data santri");
@@ -231,7 +231,7 @@ export default function SyahriyahPage() {
             setProfile(profileData);
 
             // Fetch billings
-            const billingsRes = await apiFetch(`http://127.0.0.1:8080/api/keuangan/tagihan/${uid}`);
+            const billingsRes = await apiFetch(`http://50.50.50.10:8080/api/keuangan/tagihan/${uid}`);
             if (billingsRes.ok) {
                 const billingsData = await billingsRes.json();
                 setBillings(billingsData);
@@ -278,7 +278,7 @@ export default function SyahriyahPage() {
                 total_amount: parseFloat(newBillingTotalAmount)
             };
 
-            const res = await apiFetch("http://127.0.0.1:8080/api/keuangan/tagihan", {
+            const res = await apiFetch("http://50.50.50.10:8080/api/keuangan/tagihan", {
                 method: "POST",
                 body: JSON.stringify(payload)
             });
@@ -321,7 +321,7 @@ export default function SyahriyahPage() {
                 total_amount: parseFloat(newBillingTotalAmount)
             };
 
-            const res = await apiFetch("http://127.0.0.1:8080/api/keuangan/tagihan/bulk", {
+            const res = await apiFetch("http://50.50.50.10:8080/api/keuangan/tagihan/bulk", {
                 method: "POST",
                 body: JSON.stringify(payload)
             });
@@ -367,7 +367,7 @@ export default function SyahriyahPage() {
                 notes: "Cicilan via Kasir (Tarik Tunai / Transfer langsung)"
             };
 
-            const res = await apiFetch(`http://127.0.0.1:8080/api/keuangan/tagihan/bayar`, {
+            const res = await apiFetch(`http://50.50.50.10:8080/api/keuangan/tagihan/bayar`, {
                 method: "POST",
                 body: JSON.stringify(payload)
             });

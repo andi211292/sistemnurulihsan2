@@ -47,15 +47,15 @@ export default function KedisiplinanPage() {
         try {
             // Load students for dropdown
             if (students.length === 0) {
-                const stRes = await apiFetch("http://127.0.0.1:8080/api/students/");
+                const stRes = await apiFetch("http://50.50.50.10:8080/api/students/");
                 if (stRes.ok) setStudents(await stRes.json());
             }
 
             if (activeTab === "leave") {
-                const lRes = await apiFetch("http://127.0.0.1:8080/api/academic/student-leaves");
+                const lRes = await apiFetch("http://50.50.50.10:8080/api/academic/student-leaves");
                 if (lRes.ok) setLeaves(await lRes.json());
             } else {
-                const vRes = await apiFetch("http://127.0.0.1:8080/api/academic/student-violations");
+                const vRes = await apiFetch("http://50.50.50.10:8080/api/academic/student-violations");
                 if (vRes.ok) setViolations(await vRes.json());
             }
         } catch (e) {
@@ -93,7 +93,7 @@ export default function KedisiplinanPage() {
                 payload.end_time = "";
             }
 
-            const res = await apiFetch("http://127.0.0.1:8080/api/academic/student-leaves", {
+            const res = await apiFetch("http://50.50.50.10:8080/api/academic/student-leaves", {
                 method: "POST",
                 body: JSON.stringify(payload)
             });
@@ -109,7 +109,7 @@ export default function KedisiplinanPage() {
 
     const markReturned = async (leave_id: number) => {
         try {
-            const res = await apiFetch(`http://127.0.0.1:8080/api/academic/student-leaves/${leave_id}/return`, {
+            const res = await apiFetch(`http://50.50.50.10:8080/api/academic/student-leaves/${leave_id}/return`, {
                 method: "PUT"
             });
             if (res.ok) {
@@ -127,7 +127,7 @@ export default function KedisiplinanPage() {
         e.preventDefault();
         setIsSaving(true);
         try {
-            const res = await apiFetch("http://127.0.0.1:8080/api/academic/student-violations", {
+            const res = await apiFetch("http://50.50.50.10:8080/api/academic/student-violations", {
                 method: "POST",
                 body: JSON.stringify({ ...violationForm, student_id: parseInt(violationForm.student_id) })
             });
