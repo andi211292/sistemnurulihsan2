@@ -29,26 +29,47 @@ def get_db():
         db.close()
 
 # ─────────────────────────────────────────────
-# Jadwal Shalat — tentukan sesi dari jam clock
+# Helper: konversi "HH:MM" → total menit sejak tengah malam
 # ─────────────────────────────────────────────
-JADWAL_SESI = [
-    # (jam_mulai, jam_selesai, nama_sesi)
-    (3,  7,  "SHALAT_SUBUH"),
-    (11, 14, "SHALAT_DZUHUR"),
-    (14, 17, "SHALAT_ASHAR"),
-    (17, 20, "SHALAT_MAGHRIB"),
-    (19, 23, "SHALAT_ISYA"),
-    (6,  13, "SEKOLAH_PAGI"),
-    (13, 17, "DINIYAH_SORE"),
-    (20, 24, "MALAM_KAMAR"),
-]
+def hhmm_to_minutes(hhmm: str) -> int:
+    """Konversi '05:30' → 330 menit."""
+    try:
+        h, m = hhmm.split(":")
+        return int(h) * 60 + int(m)
+    except Exception:
+        return 0
+
+def get_sesi_dari_device(device_id: str, db):
+    """
+    Cari sesi aktif untuk device_id berdasarkan waktu sekarang (per menit).
+    Return: (sesi_aktif: str|None, punya_jadwal: bool)
+    - (sesi, True)  → ada jadwal dan sesi cocok
+    - (None, True)  → ada jadwal tapi tidak ada yang aktif sekarang
+    - (None, False) → device tidak punya jadwal sama sekali
+    """
+    now = datetime.now()
+    now_minutes = now.hour * 60 + now.minute
+
+    jadwal_list = db.query(models.AttendanceDeviceSesi).filter(
+        models.AttendanceDeviceSesi.device_id == device_id,
+        models.AttendanceDeviceSesi.is_active == True
+    ).all()
+
+    punya_jadwal = len(jadwal_list) > 0
+
+    for jadwal in jadwal_list:
+        mulai   = hhmm_to_minutes(jadwal.jam_mulai)
+        selesai = hhmm_to_minutes(jadwal.jam_selesai)
+        if mulai <= now_minutes <= selesai:
+            return (jadwal.tipe_sesi, True)
+
+    return (None, punya_jadwal)
 
 def get_sesi_sekarang() -> Optional[str]:
-    """Tentukan sesi aktif berdasarkan jam sekarang (WIB)."""
+    """Fallback: deteksi sesi dari jam clock jika device tidak punya jadwal."""
     jam = datetime.now().hour
-    # Prioritas: lebih spesifik di depan
-    if 3 <= jam < 7:    return "SHALAT_SUBUH"
-    if 6 <= jam < 13:   return "SEKOLAH_PAGI"
+    if 3  <= jam < 7:   return "SHALAT_SUBUH"
+    if 6  <= jam < 13:  return "SEKOLAH_PAGI"
     if 11 <= jam < 14:  return "SHALAT_DZUHUR"
     if 13 <= jam < 17:  return "DINIYAH_SORE"
     if 14 <= jam < 17:  return "SHALAT_ASHAR"
@@ -104,17 +125,26 @@ def absensi_tap(request: AbsensiTapRequest, db: Session = Depends(get_db)):
 
     nama = student.full_name
 
-    # 2. Tentukan sesi dari device atau dari clock
+    # 2. Tentukan sesi dari jadwal device (per menit) atau dari clock sebagai fallback
     sesi_aktif = None
     if request.device_id:
-        device = db.query(models.AttendanceDevice).filter(
-            models.AttendanceDevice.device_id == request.device_id,
-            models.AttendanceDevice.is_active == True
-        ).first()
-        if device:
-            sesi_aktif = device.tipe_sesi
-    
+        sesi_dari_db, punya_jadwal = get_sesi_dari_device(request.device_id, db)
+
+        if punya_jadwal and sesi_dari_db is None:
+            # Device punya jadwal tapi tidak ada yang aktif sekarang → TOLAK
+            now_str = datetime.now().strftime("%H:%M")
+            return {
+                "success": False,
+                "status": "diluar_jadwal",
+                "nama": nama,
+                "message": f"Di luar jadwal absensi. Waktu sekarang: {now_str}",
+                "waktu": now_str
+            }
+
+        sesi_aktif = sesi_dari_db  # None jika tidak punya jadwal sama sekali
+
     if not sesi_aktif:
+        # Fallback: hanya berlaku untuk device TANPA jadwal terdaftar
         sesi_aktif = get_sesi_sekarang() or "KLASIKAL"
 
     # 3. Anti-double-tap: cek 10 menit terakhir di device yang SAMA
@@ -194,21 +224,6 @@ def absensi_tap(request: AbsensiTapRequest, db: Session = Depends(get_db)):
         timestamp=now
     )
     db.add(attendance)
-
-    # 8. Juga catat ke RFIDLog agar Live Monitor ikut update
-    try:
-        rfid_log = models.RFIDLog(
-            rfid_uid=uid,
-            student_id=student.student_id,
-            student_name=student.full_name,
-            student_class=student.student_class,
-            action=f"ABSEN {sesi_aktif}",
-            timestamp=now
-        )
-        db.add(rfid_log)
-    except Exception:
-        pass  # RFIDLog bersifat opsional, tidak ganggu proses utama
-
     db.commit()
 
     return {
@@ -359,38 +374,58 @@ def get_rekap_per_santri(
 # ─────────────────────────────────────────────
 # CRUD Alat / Devices
 # ─────────────────────────────────────────────
+
+class SesiSchema(BaseModel):
+    tipe_sesi:   str    # SHALAT_SUBUH, dll
+    jam_mulai:   str    # "05:30"
+    jam_selesai: str    # "05:55"
+    is_active:   bool = True
+
 @router.get("/devices")
 def list_devices(db: Session = Depends(get_db)):
+    """Daftar device beserta semua jadwal sesinya."""
     devices = db.query(models.AttendanceDevice).all()
-    return devices
+    result = []
+    for d in devices:
+        result.append({
+            "id":          d.id,
+            "device_id":   d.device_id,
+            "nama_lokasi": d.nama_lokasi,
+            "is_active":   d.is_active,
+            "jadwal_sesi": [
+                {
+                    "id":          j.id,
+                    "tipe_sesi":   j.tipe_sesi,
+                    "jam_mulai":   j.jam_mulai,
+                    "jam_selesai": j.jam_selesai,
+                    "is_active":   j.is_active,
+                }
+                for j in d.jadwal_sesi
+            ]
+        })
+    return result
 
 @router.post("/devices")
 def upsert_device(data: DeviceSchema, db: Session = Depends(get_db)):
-    """Daftarkan alat baru atau update device yang sudah ada."""
+    """Daftarkan alat baru atau update nama/status device."""
     device = db.query(models.AttendanceDevice).filter(
         models.AttendanceDevice.device_id == data.device_id
     ).first()
 
     if device:
         device.nama_lokasi = data.nama_lokasi
-        device.tipe_sesi   = data.tipe_sesi
-        device.jam_mulai   = data.jam_mulai
-        device.jam_selesai = data.jam_selesai
         device.is_active   = data.is_active
     else:
         device = models.AttendanceDevice(
             device_id   = data.device_id,
             nama_lokasi = data.nama_lokasi,
-            tipe_sesi   = data.tipe_sesi,
-            jam_mulai   = data.jam_mulai,
-            jam_selesai = data.jam_selesai,
             is_active   = data.is_active,
         )
         db.add(device)
 
     db.commit()
     db.refresh(device)
-    return {"success": True, "device": {"device_id": device.device_id, "nama_lokasi": device.nama_lokasi}}
+    return {"success": True, "device_id": device.device_id}
 
 @router.delete("/devices/{device_id}")
 def delete_device(device_id: str, db: Session = Depends(get_db)):
@@ -400,5 +435,39 @@ def delete_device(device_id: str, db: Session = Depends(get_db)):
     if not device:
         raise HTTPException(status_code=404, detail="Device tidak ditemukan")
     db.delete(device)
+    db.commit()
+    return {"success": True}
+
+# ── Jadwal Sesi per Device ──
+@router.post("/devices/{device_id}/sesi")
+def add_sesi(device_id: str, data: SesiSchema, db: Session = Depends(get_db)):
+    """Tambah jadwal sesi ke device (bisa banyak sesi per device)."""
+    device = db.query(models.AttendanceDevice).filter(
+        models.AttendanceDevice.device_id == device_id
+    ).first()
+    if not device:
+        raise HTTPException(status_code=404, detail="Device tidak ditemukan")
+
+    sesi = models.AttendanceDeviceSesi(
+        device_id   = device_id,
+        tipe_sesi   = data.tipe_sesi,
+        jam_mulai   = data.jam_mulai,
+        jam_selesai = data.jam_selesai,
+        is_active   = data.is_active,
+    )
+    db.add(sesi)
+    db.commit()
+    return {"success": True, "id": sesi.id}
+
+@router.delete("/devices/{device_id}/sesi/{sesi_id}")
+def delete_sesi(device_id: str, sesi_id: int, db: Session = Depends(get_db)):
+    """Hapus satu jadwal sesi dari device."""
+    sesi = db.query(models.AttendanceDeviceSesi).filter(
+        models.AttendanceDeviceSesi.id == sesi_id,
+        models.AttendanceDeviceSesi.device_id == device_id
+    ).first()
+    if not sesi:
+        raise HTTPException(status_code=404, detail="Jadwal sesi tidak ditemukan")
+    db.delete(sesi)
     db.commit()
     return {"success": True}

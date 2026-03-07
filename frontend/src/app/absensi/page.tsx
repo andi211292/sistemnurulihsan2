@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { apiFetch } from "@/utils/api";
 
 const API_URL = "http://127.0.0.1:8080";
@@ -79,16 +79,24 @@ function KategoriCard({ label, icon, data }: { label: string; icon: string; data
     );
 }
 
+// Fungsi tanggal lokal (bukan UTC) — penting untuk WIB
+function getLocalDateStr() {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+}
+
 export default function AbsensiPage() {
-    const today = new Date().toISOString().split("T")[0];
-    const [tanggal, setTanggal] = useState(today);
+    const [tanggal, setTanggal] = useState(getLocalDateStr);
     const [gender, setGender] = useState("");
     const [rekap, setRekap] = useState<RekapData | null>(null);
     const [detail, setDetail] = useState<AbsensiDetail[]>([]);
     const [sesiFilter, setSesiFilter] = useState("");
     const [loading, setLoading] = useState(false);
 
-    const loadRekap = async () => {
+    const loadRekap = useCallback(async () => {
         setLoading(true);
         try {
             const params = new URLSearchParams({ tanggal });
@@ -98,18 +106,27 @@ export default function AbsensiPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [tanggal, gender]);
 
-    const loadDetail = async () => {
+    const loadDetail = useCallback(async () => {
         const params = new URLSearchParams({ tanggal });
         if (gender) params.append("gender", gender);
         if (sesiFilter) params.append("sesi", sesiFilter);
         const res = await apiFetch(`${API_URL}/api/absensi/rekap/santri?${params}`);
         if (res.ok) setDetail(await res.json());
-    };
+    }, [tanggal, gender, sesiFilter]);
 
-    useEffect(() => { loadRekap(); }, [tanggal, gender]);
-    useEffect(() => { loadDetail(); }, [tanggal, gender, sesiFilter]);
+    useEffect(() => { loadRekap(); }, [loadRekap]);
+    useEffect(() => { loadDetail(); }, [loadDetail]);
+
+    // Auto-refresh setiap 30 detik
+    useEffect(() => {
+        const interval = setInterval(() => {
+            loadRekap();
+            loadDetail();
+        }, 30000);
+        return () => clearInterval(interval);
+    }, [loadRekap, loadDetail]);
 
     const statusBadge = (status: string) => {
         const map: Record<string, string> = {

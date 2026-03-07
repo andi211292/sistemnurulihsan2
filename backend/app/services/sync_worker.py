@@ -321,6 +321,72 @@ async def sync_data_to_cloud():
                     local_db.rollback()
                     logger.error(f"Error syncing Payment Transactions: {e}")
 
+                # ====== 8. Sync Student Violations ======
+                try:
+                    violations_to_sync = local_db.query(models.StudentViolation).filter(
+                        models.StudentViolation.sync_status == False
+                    ).all()
+
+                    if violations_to_sync:
+                        for v in violations_to_sync:
+                            v_dict = {
+                                "id": v.id,
+                                "student_id": v.student_id,
+                                "violation_date": v.violation_date,
+                                "violation_type": v.violation_type,
+                                "punishment": v.punishment,
+                                "points": v.points,
+                                "sync_status": True
+                            }
+                            stmt = pg_insert(models.StudentViolation).values(v_dict)
+                            stmt = stmt.on_conflict_do_update(
+                                index_elements=['id'],
+                                set_=v_dict
+                            )
+                            cloud_db.execute(stmt)
+                            v.sync_status = True
+                            logger_count += 1
+                        cloud_db.commit()
+                        local_db.commit()
+                except Exception as e:
+                    cloud_db.rollback()
+                    local_db.rollback()
+                    logger.error(f"Error syncing Student Violations: {e}")
+
+                # ====== 9. Sync Student Leaves (Izin/Sakit) ======
+                try:
+                    leaves_to_sync = local_db.query(models.StudentLeave).filter(
+                        models.StudentLeave.sync_status == False
+                    ).all()
+
+                    if leaves_to_sync:
+                        for lv in leaves_to_sync:
+                            lv_dict = {
+                                "id": lv.id,
+                                "student_id": lv.student_id,
+                                "start_date": lv.start_date,
+                                "end_date": lv.end_date,
+                                "reason": lv.reason.value if hasattr(lv.reason, 'value') else lv.reason,
+                                "notes": lv.notes,
+                                "is_returned": lv.is_returned,
+                                "return_timestamp": lv.return_timestamp,
+                                "sync_status": True
+                            }
+                            stmt = pg_insert(models.StudentLeave).values(lv_dict)
+                            stmt = stmt.on_conflict_do_update(
+                                index_elements=['id'],
+                                set_=lv_dict
+                            )
+                            cloud_db.execute(stmt)
+                            lv.sync_status = True
+                            logger_count += 1
+                        cloud_db.commit()
+                        local_db.commit()
+                except Exception as e:
+                    cloud_db.rollback()
+                    local_db.rollback()
+                    logger.error(f"Error syncing Student Leaves: {e}")
+
                 if logger_count > 0:
                     logger.info(f"[{datetime.now()}] Sinkronisasi SUKSES: {logger_count} entri sinkronisasi baru dipush.")
 

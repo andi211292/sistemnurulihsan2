@@ -120,10 +120,28 @@ class AttendanceDevice(Base):
     id          = Column(Integer, primary_key=True, index=True)
     device_id   = Column(String, unique=True, index=True)  # contoh: "ESP32-MASJID-01"
     nama_lokasi = Column(String)                           # contoh: "Masjid Utama"
-    tipe_sesi   = Column(String)                           # AttendanceTypeEnum value
-    jam_mulai   = Column(Integer, default=0)               # jam aktif mulai (0-23)
-    jam_selesai = Column(Integer, default=23)              # jam aktif selesai (0-23)
     is_active   = Column(Boolean, default=True)
+    # Legacy columns (dipertahankan agar tidak break data lama)
+    tipe_sesi   = Column(String, nullable=True)
+    jam_mulai   = Column(Integer, default=0)
+    jam_selesai = Column(Integer, default=23)
+
+    # Relasi ke jadwal sesi
+    jadwal_sesi = relationship("AttendanceDeviceSesi", back_populates="device",
+                               cascade="all, delete-orphan")
+
+class AttendanceDeviceSesi(Base):
+    """Jadwal sesi per alat — satu alat bisa punya banyak sesi (misal 5 waktu shalat)."""
+    __tablename__ = "attendance_device_sesi"
+
+    id           = Column(Integer, primary_key=True, index=True)
+    device_id    = Column(String, ForeignKey("attendance_devices.device_id", ondelete="CASCADE"))
+    tipe_sesi    = Column(String)     # SHALAT_SUBUH, SHALAT_DZUHUR, dll
+    jam_mulai    = Column(String)     # "05:30" format HH:MM
+    jam_selesai  = Column(String)     # "05:55" format HH:MM
+    is_active    = Column(Boolean, default=True)
+
+    device = relationship("AttendanceDevice", back_populates="jadwal_sesi")
 
 class Attendance(Base):
     __tablename__ = "attendances"

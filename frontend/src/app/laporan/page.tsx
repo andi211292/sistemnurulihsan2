@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Head from "next/head";
+import { apiFetch } from "@/utils/api";
 
 interface Student {
     student_id: number;
@@ -28,33 +28,44 @@ interface Violation {
     points: number;
 }
 
+interface Leave {
+    id: number;
+    student_id: number;
+    start_date: string;
+    end_date: string;
+    reason: string;
+    notes: string | null;
+    is_returned: boolean;
+}
+
 export default function LaporanPage() {
     const [students, setStudents] = useState<Student[]>([]);
-    const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [violations, setViolations] = useState<Violation[]>([]);
+    const [leaves, setLeaves] = useState<Leave[]>([]);
     const [loading, setLoading] = useState(true);
-
     const [currentMonth, setCurrentMonth] = useState("");
+    const [currentMonthNum, setCurrentMonthNum] = useState(0);
+    const [currentYear, setCurrentYear] = useState(0);
 
     useEffect(() => {
-        // Set current month string
         const date = new Date();
         const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
         setCurrentMonth(`${monthNames[date.getMonth()]} ${date.getFullYear()}`);
+        setCurrentMonthNum(date.getMonth() + 1);
+        setCurrentYear(date.getFullYear());
 
         const fetchData = async () => {
             setLoading(true);
             try {
-                // Fetch Students
                 const stRes = await fetch("http://127.0.0.1:8080/api/students/");
                 if (stRes.ok) setStudents(await stRes.json());
 
-                // Fetch Transactions (Using Info/Log endpoint from Keuangan if available, fallback to mock if no global endpoint)
-                // Assuming we can fetch recent global transactions from our wallet structure or just summing up for now.
-                // We will implement a basic global fetcher assuming we have one, or just map through students if needed.
-                // For this UI, let's fetch violations first.
-                const violRes = await fetch("http://127.0.0.1:8080/api/academic/student-violations");
+                // Gunakan apiFetch (membawa token JWT otomatis)
+                const violRes = await apiFetch("http://127.0.0.1:8080/api/academic/student-violations");
                 if (violRes.ok) setViolations(await violRes.json());
+
+                const leaveRes = await apiFetch("http://127.0.0.1:8080/api/academic/student-leaves");
+                if (leaveRes.ok) setLeaves(await leaveRes.json());
 
             } catch (error) {
                 console.error("Failed to load report data:", error);
@@ -98,10 +109,28 @@ export default function LaporanPage() {
         document.body.removeChild(link);
     };
 
+    // Filter pelanggaran & izin bulan ini saja
+    const violasisBulanIni = violations.filter(v => {
+        if (!v.violation_date) return false;
+        const d = new Date(v.violation_date);
+        return d.getMonth() + 1 === currentMonthNum && d.getFullYear() === currentYear;
+    });
+    const leavesBulanIni = leaves.filter(l => {
+        if (!l.start_date) return false;
+        const d = new Date(l.start_date);
+        return d.getMonth() + 1 === currentMonthNum && d.getFullYear() === currentYear;
+    });
+
     // Derived Statistics
     const totalStudents = students.length;
-    const totalViolations = violations.length;
-    const totalPoints = violations.reduce((acc, curr) => acc + curr.points, 0);
+    const totalViolations = violasisBulanIni.length;
+    const totalPoints = violasisBulanIni.reduce((acc, curr) => acc + curr.points, 0);
+    const totalLeaves = leavesBulanIni.length;
+
+    const formatDate = (iso: string) => {
+        if (!iso) return "-";
+        return new Date(iso).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" });
+    };
 
     return (
         <div className="space-y-6 print:space-y-4 print:bg-white print:text-black min-h-screen">
@@ -160,12 +189,16 @@ export default function LaporanPage() {
                                 <div className="text-4xl font-black text-emerald-600 print:text-black">{totalStudents} Jiwa</div>
                             </div>
                             <div className="bg-red-50 border border-red-100 p-6 rounded-xl print:border-black print:bg-white print:rounded-none">
-                                <div className="text-red-800 font-semibold mb-2 print:text-black">Angka Pelanggaran (Bulan Ini)</div>
+                                <div className="text-red-800 font-semibold mb-2 print:text-black">Pelanggaran (Bulan Ini)</div>
                                 <div className="text-4xl font-black text-red-600 print:text-black">{totalViolations} Kasus</div>
                             </div>
                             <div className="bg-orange-50 border border-orange-100 p-6 rounded-xl print:border-black print:bg-white print:rounded-none">
                                 <div className="text-orange-800 font-semibold mb-2 print:text-black">Akumulasi Poin Takzir</div>
                                 <div className="text-4xl font-black text-orange-600 print:text-black">-{totalPoints} Poin</div>
+                            </div>
+                            <div className="bg-blue-50 border border-blue-100 p-6 rounded-xl print:border-black print:bg-white print:rounded-none">
+                                <div className="text-blue-800 font-semibold mb-2 print:text-black">Izin / Sakit (Bulan Ini)</div>
+                                <div className="text-4xl font-black text-blue-600 print:text-black">{totalLeaves} Santri</div>
                             </div>
                         </div>
                     </section>
@@ -211,15 +244,55 @@ export default function LaporanPage() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 print:divide-black text-gray-700 print:text-black">
-                                    {violations.length > 0 ? violations.map(v => (
+                                    {violasisBulanIni.length > 0 ? violasisBulanIni.map(v => (
                                         <tr key={v.id}>
-                                            <td className="px-6 py-3">{v.violation_date}</td>
+                                            <td className="px-6 py-3">{formatDate(v.violation_date)}</td>
                                             <td className="px-6 py-3 font-medium">{students.find(s => s.student_id === v.student_id)?.full_name || `Santri #${v.student_id}`}</td>
                                             <td className="px-6 py-3 text-red-600 font-medium print:text-black">{v.violation_type}</td>
                                             <td className="px-6 py-3 text-center w-48 truncate" title={v.punishment}>-{v.points} ({v.punishment})</td>
                                         </tr>
                                     )) : (
                                         <tr><td colSpan={4} className="px-6 py-8 text-center italic text-gray-500 print:text-black">Nihil / Nol Kasus. Keadaan kondusif.</td></tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    {/* SECTION 4: Riwayat Izin & Sakit */}
+                    <section className="print:break-inside-avoid">
+                        <h3 className="text-lg font-bold text-gray-900 border-b pb-2 mb-4 print:text-black">4. Riwayat Izin & Sakit (Bulan Ini)</h3>
+                        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden print:shadow-none print:border-black">
+                            <table className="w-full text-left text-sm whitespace-nowrap">
+                                <thead className="bg-gray-50 border-b border-gray-200 print:bg-white print:border-black">
+                                    <tr>
+                                        <th className="px-6 py-3 font-semibold text-gray-700 print:text-black">Santri</th>
+                                        <th className="px-6 py-3 font-semibold text-gray-700 print:text-black">Kelas</th>
+                                        <th className="px-6 py-3 font-semibold text-gray-700 print:text-black">Alasan</th>
+                                        <th className="px-6 py-3 font-semibold text-gray-700 print:text-black">Mulai</th>
+                                        <th className="px-6 py-3 font-semibold text-gray-700 print:text-black">Selesai</th>
+                                        <th className="px-6 py-3 font-semibold text-gray-700 text-center print:text-black">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 print:divide-black text-gray-700 print:text-black">
+                                    {leavesBulanIni.length > 0 ? leavesBulanIni.map(l => {
+                                        const st = students.find(s => s.student_id === l.student_id);
+                                        return (
+                                            <tr key={l.id}>
+                                                <td className="px-6 py-3 font-medium">{st?.full_name || `Santri #${l.student_id}`}</td>
+                                                <td className="px-6 py-3 text-gray-500">{st?.student_class || "-"}</td>
+                                                <td className="px-6 py-3">{l.reason.replace("_", " ")}</td>
+                                                <td className="px-6 py-3">{formatDate(l.start_date)}</td>
+                                                <td className="px-6 py-3">{formatDate(l.end_date)}</td>
+                                                <td className="px-6 py-3 text-center">
+                                                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded uppercase ${l.is_returned ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                                                        {l.is_returned ? "Kembali" : "Di Luar"}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        );
+                                    }) : (
+                                        <tr><td colSpan={6} className="px-6 py-8 text-center italic text-gray-500 print:text-black">Tidak ada izin bulan ini.</td></tr>
                                     )}
                                 </tbody>
                             </table>
