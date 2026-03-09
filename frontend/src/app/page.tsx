@@ -25,7 +25,7 @@ export default function Home() {
         }
 
         // Get empty classes
-        const resEmpty = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || "http://50.50.50.20:8080"}/api/academic/empty-classes");
+        const resEmpty = await apiFetch(`${ process.env.NEXT_PUBLIC_API_URL || "http://50.50.50.20:8080" } / api / academic / empty - classes`);
         if (resEmpty.ok) {
           const dataObj = await resEmpty.json();
           if (Array.isArray(dataObj)) {
