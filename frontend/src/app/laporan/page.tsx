@@ -57,14 +57,14 @@ export default function LaporanPage() {
         const fetchData = async () => {
             setLoading(true);
             try {
-                const stRes = await fetch("http://50.50.50.10:8080/api/students/");
+                const stRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://50.50.50.20:8080"}/api/students/");
                 if (stRes.ok) setStudents(await stRes.json());
 
                 // Gunakan apiFetch (membawa token JWT otomatis)
-                const violRes = await apiFetch("http://50.50.50.10:8080/api/academic/student-violations");
+                const violRes = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || "http://50.50.50.20:8080"}/api/academic/student-violations");
                 if (violRes.ok) setViolations(await violRes.json());
 
-                const leaveRes = await apiFetch("http://50.50.50.10:8080/api/academic/student-leaves");
+                const leaveRes = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || "http://50.50.50.20:8080"}/api/academic/student-leaves");
                 if (leaveRes.ok) setLeaves(await leaveRes.json());
 
             } catch (error) {

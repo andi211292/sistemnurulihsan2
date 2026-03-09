@@ -37,7 +37,9 @@ app.add_middleware(
         "http://localhost:3001",
         "http://127.0.0.1:3001",
         "http://50.50.50.10:3000",
-        "http://50.50.50.10:3001"
+        "http://50.50.50.10:3001",
+        "http://50.50.50.20:3000",
+        "http://50.50.50.20:3001"
     ],
     allow_origin_regex="https://.*\.vercel\.app",
     allow_credentials=True,

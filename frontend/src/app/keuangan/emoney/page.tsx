@@ -61,7 +61,7 @@ export default function EMoneyPage() {
 
         try {
             // Fetch profile + wallet
-            const profileRes = await apiFetch(`http://50.50.50.10:8080/api/keuangan/profil/${uid}`);
+            const profileRes = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || "http://50.50.50.20:8080"}/api/keuangan/profil/${uid}`);
             if (!profileRes.ok) {
                 if (profileRes.status === 404) throw new Error("Santri dengan kartu RFID ini tidak terdaftar");
                 throw new Error("Gagal mengambil data keuangan");
@@ -100,7 +100,7 @@ export default function EMoneyPage() {
                 description: keterangan
             };
 
-            const res = await apiFetch("http://50.50.50.10:8080/api/keuangan/transaksi", {
+            const res = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || "http://50.50.50.20:8080"}/api/keuangan/transaksi", {
                 method: "POST",
                 body: JSON.stringify(payload)
             });
