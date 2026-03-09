@@ -6,12 +6,7 @@ const nextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://127.0.0.1:8080/api/:path*',
-      },
-      // Fallback for requests without trailing slash if needed
-      {
-        source: '/api/:path',
-        destination: 'http://127.0.0.1:8080/api/:path',
+        destination: 'http://50.50.50.20:8080/api/:path*',
       },
     ];
   },
