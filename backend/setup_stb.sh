@@ -7,8 +7,8 @@ echo "===================================================="
 
 # 1. Update system dan install dependensi dasar
 echo "[1/4] Mengupdate sistem dan menginstal dependensi Python..."
-sudo apt update
-sudo apt install -y python3 python3-pip python3-venv sqlite3 build-essential libpq-dev git
+sudo apt update || true
+sudo apt install -y python3 python3-pip python3-venv sqlite3 build-essential libpq-dev git || true
 
 # 2. Setup Virtual Environment
 echo "[2/4] Membuat Virtual Environment..."
