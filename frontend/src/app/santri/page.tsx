@@ -47,7 +47,7 @@ export default function SantriPage() {
     const fetchStudents = async () => {
         try {
             setLoading(true);
-            const res = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || "http://50.50.50.20:8080"}/api/students/");
+            const res = await apiFetch(`/api/students/`);
             if (!res.ok) {
                 throw new Error("Gagal mengambil data dari server lokal");
             }
@@ -100,7 +100,7 @@ export default function SantriPage() {
             const formData = new FormData();
             formData.append("file", file);
 
-            const res = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || "http://50.50.50.20:8080"}/api/students/import_excel", {
+            const res = await apiFetch(`/api/students/import_excel`, {
                 method: "POST",
                 body: formData
             });
@@ -133,7 +133,7 @@ export default function SantriPage() {
             const formData = new FormData();
             formData.append("file", file);
 
-            const res = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || "http://50.50.50.20:8080"}/api/students/import_csv", {
+            const res = await apiFetch(`/api/students/import_csv`, {
                 method: "POST",
                 body: formData
             });
@@ -203,7 +203,7 @@ export default function SantriPage() {
                 batas_jajan_harian: formData.batas_jajan_harian
             };
             if (modalMode === "add") {
-                const res = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || "http://50.50.50.20:8080"}/api/students/", {
+                const res = await apiFetch(`/api/students/`, {
                     method: "POST",
                     body: JSON.stringify(payload)
                 });
@@ -212,7 +212,7 @@ export default function SantriPage() {
                     throw new Error(errData.detail || "Gagal menambah santri");
                 }
             } else {
-                const res = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || "http://50.50.50.20:8080"}/api/students/${formData.id}`, {
+                const res = await apiFetch(`/api/students/${formData.id}`, {
                     method: "PUT",
                     body: JSON.stringify(payload)
                 });
@@ -239,7 +239,7 @@ export default function SantriPage() {
 
         try {
             setLoading(true);
-            const res = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || "http://50.50.50.20:8080"}/api/students/${student_id}`, {
+            const res = await apiFetch(`/api/students/${student_id}`, {
                 method: "DELETE"
             });
             if (!res.ok) {

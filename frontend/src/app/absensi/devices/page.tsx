@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { apiFetch } from "@/utils/api";
 
-const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://50.50.50.20:8080")";
+const API_URL = "";
 
 const TIPE_SESI_LIST = [
     { value: "SHALAT_SUBUH", label: "🕌 Subuh" },

@@ -32,7 +32,7 @@ export default function LiveMonitorPage() {
     useEffect(() => {
         const fetchLogs = async () => {
             try {
-                const res = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || "http://50.50.50.20:8080"}/api/rfid/log-terbaru");
+                const res = await apiFetch(`/api/rfid/log-terbaru`);
                 if (!res.ok) throw new Error("Gagal mengambil live data");
                 const data = await res.json();
                 setAttendanceLogs(data.attendance);

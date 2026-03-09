@@ -18,14 +18,14 @@ export default function Home() {
     const fetchStats = async () => {
       try {
         // Get total students
-        const resStudents = await apiFetch(`${process.env.NEXT_PUBLIC_API_URL || "http://50.50.50.20:8080"}/api/students/");
+        const resStudents = await apiFetch(`/api/students/`);
         if (resStudents.ok) {
           const data = await resStudents.json();
           setTotalStudents(data.length);
         }
 
         // Get empty classes
-        const resEmpty = await apiFetch(`${ process.env.NEXT_PUBLIC_API_URL || "http://50.50.50.20:8080" } / api / academic / empty - classes`);
+        const resEmpty = await apiFetch(`/api/academic/empty-classes`);
         if (resEmpty.ok) {
           const dataObj = await resEmpty.json();
           if (Array.isArray(dataObj)) {
