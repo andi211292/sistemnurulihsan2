@@ -1,0 +1,25 @@
+[Unit]
+Description=Backend FastAPI Pesantren Nurul Ihsan
+After=network.target
+
+[Service]
+# Ganti 'root' atau 'armbian' dengan username STB Anda
+User=root
+Group=root
+
+# Ubah path ini sesuai dengan direktori tempat Anda menyimpan folder backend di STB
+WorkingDirectory=/root/sistemnurulihsan/backend
+
+# Alamat python di dalam virtual environment
+ExecStart=/root/sistemnurulihsan/backend/venv/bin/gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8080
+
+# Otomatis restart jika crash
+Restart=always
+RestartSec=5
+
+# Variabel Lingkungan
+Environment="PATH=/root/sistemnurulihsan/backend/venv/bin"
+EnvironmentFile=/root/sistemnurulihsan/backend/.env
+
+[Install]
+WantedBy=multi-user.target

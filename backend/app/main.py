@@ -39,10 +39,12 @@ app.add_middleware(
         "http://50.50.50.10:3000",
         "http://50.50.50.10:3001"
     ],
+    allow_origin_regex="https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # Dependency
 def get_db():
