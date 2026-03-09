@@ -27,15 +27,26 @@ async function proxyRequest(request: NextRequest, params: any) {
         const targetUrl = `http://127.0.0.1:8080/api/${path}${searchParams ? '?' + searchParams : ''}`;
         console.log(`[Proxy] ${request.method} ${request.url} -> ${targetUrl}`);
 
-        // Clone headers and remove host to prevent backend confusion
-        const headers = new Headers(request.headers);
-        headers.delete('host');
-        headers.delete('connection');
+        // Clone headers and remove ones that cause redirect loops (SSL) or backend confusion
+        const headers = new Headers();
+        // Only forward specific essential headers
+        if (request.headers.get('Authorization')) {
+            headers.set('Authorization', request.headers.get('Authorization')!);
+        }
+        if (request.headers.get('Content-Type')) {
+            headers.set('Content-Type', request.headers.get('Content-Type')!);
+        }
+
+        // Ensure we don't pass X-Forwarded-Proto which makes FastAPI redirect to HTTPS
+        headers.delete('x-forwarded-proto');
+        headers.delete('x-forwarded-host');
+        headers.delete('x-forwarded-for');
 
         const fetchOptions: RequestInit = {
             method: request.method,
             headers: headers,
             cache: 'no-store',
+            redirect: 'follow',
         };
 
         // For non-GET requests, forward the body
