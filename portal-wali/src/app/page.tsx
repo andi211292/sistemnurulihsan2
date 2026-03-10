@@ -46,9 +46,8 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="mx-auto w-24 h-24 bg-emerald-600 rounded-full flex items-center justify-center shadow-lg mb-4">
-          {/* Simple Mosque / Dome Icon placeholder */}
-          <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+        <div className="mx-auto w-24 h-24 bg-emerald-600 rounded-full flex items-center justify-center shadow-lg mb-4 border-4 border-white">
+          <span className="text-white text-4xl font-black tracking-tighter">NI</span>
         </div>
         <h2 className="mt-2 text-center text-3xl font-extrabold text-gray-900">
           Portal Wali Santri
@@ -92,7 +91,7 @@ export default function LoginPage() {
                 disabled={loading}
                 className="w-full flex justify-center py-3.5 px-4 border border-transparent rounded-xl shadow-md text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-all disabled:opacity-50"
               >
-                {loading ? "Memverifikasi Data..." : "Masuk ke Dashboard"}
+                {loading ? "Memproses..." : "Masuk ke Dashboard"}
               </button>
             </div>
           </form>
@@ -113,6 +112,11 @@ export default function LoginPage() {
           </div>
 
         </div>
+        <footer className="mt-auto pb-8 text-center">
+          <p className="text-xs text-gray-400 font-medium tracking-wide">
+            &copy; 2026 IT Pesantren Nurul Ihsan. Menuju Digitalisasi Dakwah
+          </p>
+        </footer>
       </div>
     </div>
   );
