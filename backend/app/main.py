@@ -68,7 +68,20 @@ def read_students(skip: int = 0, limit: int = 5000, db: Session = Depends(get_db
 
 @app.post("/api/students/", response_model=schemas.StudentResponse, tags=["Students"])
 def create_student(student: schemas.StudentCreate, db: Session = Depends(get_db)):
-    return crud.create_student(db=db, student=student)
+    existing_nis = db.query(models.Student).filter(models.Student.nis == student.nis).first()
+    if existing_nis:
+        raise HTTPException(status_code=400, detail="NIS sudah terdaftar. Gunakan NIS lain atau edit data yang ada.")
+    
+    if student.rfid_uid:
+        existing_rfid = db.query(models.Student).filter(models.Student.rfid_uid == student.rfid_uid).first()
+        if existing_rfid:
+            raise HTTPException(status_code=400, detail="RFID UID sudah digunakan oleh santri lain.")
+            
+    try:
+        return crud.create_student(db=db, student=student)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Gagal menambah santri: {str(e)}")
 
 @app.post("/api/students/bulk", tags=["Students"])
 def create_students_bulk(students: List[schemas.StudentCreate], db: Session = Depends(get_db)):
