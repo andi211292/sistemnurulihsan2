@@ -66,7 +66,18 @@ export default function SantriPage() {
 
     const openAddModal = () => {
         setModalMode("add");
-        setFormData({ id: 0, nis: "", rfid_uid: "", full_name: "", student_class: "", kelas_sekolah: "", tingkatan_diniyah: "", dormitory: "", gender: "PUTRA", batas_jajan_harian: 15000 });
+        setFormData({
+            id: 0,
+            nis: "",
+            rfid_uid: "",
+            full_name: "",
+            student_class: "",
+            kelas_sekolah: "",
+            tingkatan_diniyah: "",
+            dormitory: "",
+            gender: "PUTRA",
+            batas_jajan_harian: 15000,
+        });
         setFormError(null);
         setIsModalOpen(true);
     };
