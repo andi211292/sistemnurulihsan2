@@ -303,3 +303,72 @@ class ClassScheduleResponse(ClassScheduleBase):
 
     class Config:
         from_attributes = True
+
+# --- Medical (Health) Schemas ---
+class MedicalRecordBase(BaseModel):
+    student_id: int
+    complaint: str
+    diagnosis: Optional[str] = None
+    medicine_given: Optional[str] = None
+
+class MedicalRecordCreate(MedicalRecordBase):
+    handled_by_user_id: int
+
+class MedicalRecordUpdate(BaseModel):
+    diagnosis: Optional[str] = None
+    medicine_given: Optional[str] = None
+
+class MedicalRecordResponse(MedicalRecordBase):
+    medical_id: int
+    handled_by_user_id: int
+    timestamp: datetime
+    sync_status: bool
+
+    class Config:
+        from_attributes = True
+
+class MedicalRecordDetailResponse(MedicalRecordResponse):
+    student_name: str
+    handler_name: str
+
+# --- Ranking Schemas ---
+class StudentRankingBase(BaseModel):
+    student_id: int
+    category: str
+    position: int
+    month: str
+    year: str
+    notes: Optional[str] = None
+
+class StudentRankingCreate(StudentRankingBase):
+    created_by_user_id: int
+
+class StudentRankingResponse(StudentRankingBase):
+    ranking_id: int
+    created_by_user_id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class StudentRankingDetailResponse(StudentRankingResponse):
+    student_name: str
+    student_class: str
+
+# --- Gallery Schemas ---
+class GalleryBase(BaseModel):
+    title: str
+    url: str
+    category: str
+
+class GalleryCreate(GalleryBase):
+    uploaded_by_user_id: int
+
+class GalleryResponse(GalleryBase):
+    gallery_id: int
+    uploaded_by_user_id: int
+    created_at: datetime
+    uploader_name: str
+
+    class Config:
+        from_attributes = True
