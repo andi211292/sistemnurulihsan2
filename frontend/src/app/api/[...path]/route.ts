@@ -20,7 +20,13 @@ async function proxyRequest(request: NextRequest, params: any) {
     try {
         const resolvedParams = await params;
         const pathArray = resolvedParams.path || [];
-        const path = pathArray.join('/');
+        let path = pathArray.join('/');
+        
+        // Preserve trailing slash if present in the original request
+        if (request.nextUrl.pathname.endsWith('/')) {
+            path += '/';
+        }
+        
         const searchParams = request.nextUrl.searchParams.toString();
 
         // Target backend on the same STB
