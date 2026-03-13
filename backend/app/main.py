@@ -66,7 +66,7 @@ def read_students(skip: int = 0, limit: int = 5000, db: Session = Depends(get_db
     students = crud.get_students(db, skip=skip, limit=limit)
     return students
 
-@app.post("/api/students/", response_model=schemas.StudentResponse, tags=["Students"])
+@app.post("/api/students", response_model=schemas.StudentResponse, tags=["Students"])
 def create_student(student: schemas.StudentCreate, db: Session = Depends(get_db)):
     existing_nis = db.query(models.Student).filter(models.Student.nis == student.nis).first()
     if existing_nis:
