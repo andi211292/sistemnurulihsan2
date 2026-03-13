@@ -328,3 +328,27 @@ class StudentViolation(Base):
     punishment = Column(String)
     points = Column(Integer, default=0)
     sync_status = Column(Boolean, default=False)
+
+class StudentRanking(Base):
+    __tablename__ = "student_rankings"
+
+    ranking_id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("students.student_id"))
+    category = Column(String) # e.g., "Tahfidz", "Akademik", "Disiplin"
+    position = Column(Integer) # 1, 2, 3...
+    month = Column(String) # "03"
+    year = Column(String) # "2026"
+    notes = Column(String, nullable=True)
+    created_by_user_id = Column(Integer, ForeignKey("users.user_id"))
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+class GalleryActivity(Base):
+    __tablename__ = "gallery_activities"
+
+    gallery_id = Column(Integer, primary_key=True, index=True)
+    title = Column(String)
+    url = Column(String) # usually Supabase storage URL
+    category = Column(String) # PENDIDIKAN, OLAHRAGA, ASRAMA, dll
+    uploaded_by_user_id = Column(Integer, ForeignKey("users.user_id"))
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+

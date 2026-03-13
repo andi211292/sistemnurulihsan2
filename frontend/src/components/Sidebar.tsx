@@ -37,6 +37,9 @@ export default function Sidebar() {
         { name: "Tagihan Syahriyah", path: "/keuangan/syahriyah", allowed: ["SUPER_ADMIN", "KASIR_SYAHRIYAH_PUTRA", "KASIR_SYAHRIYAH_PUTRI"] },
         { name: "👨‍🏫 Data Guru", path: "/guru", allowed: ["SUPER_ADMIN", "PENGURUS_SEKOLAH"] },
         { name: "⚖️ Kedisiplinan", path: "/kedisiplinan", allowed: ["SUPER_ADMIN", "PENGURUS_SANTRI", "GURU_BP", "PENGURUS_KEAMANAN"] },
+        { name: "🏥 Klinik Kesehatan", path: "/kesehatan", allowed: ["SUPER_ADMIN", "PENGURUS_SANTRI"] },
+        { name: "🏆 Bintang Prestasi", path: "/ranking", allowed: ["SUPER_ADMIN", "PENGURUS_SANTRI", "PENGURUS_SEKOLAH"] },
+        { name: "📸 Galeri Kegiatan", path: "/galeri", allowed: ["SUPER_ADMIN", "PENGURUS_SANTRI", "PENGURUS_SEKOLAH"] },
         { name: "🖨️ Laporan Bulanan", path: "/laporan", allowed: ["SUPER_ADMIN"] },
         { name: "📊 Laporan Keuangan", path: "/laporan-keuangan", allowed: ["SUPER_ADMIN", "KASIR_KOP_PUSAT"] },
     ];
