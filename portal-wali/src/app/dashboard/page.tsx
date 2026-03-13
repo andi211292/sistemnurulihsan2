@@ -231,8 +231,9 @@ export default function DashboardPage() {
             setNotifications([
                 { id: 1, message: "Selamat Datang di Portal Wali Santri!", type: "info", created_at: new Date().toISOString(), read: false }
             ]);
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            if (err instanceof Error) setError(err.message);
+            else setError("Terjadi kesalahan sistem");
         } finally {
             setLoading(false);
         }
@@ -287,7 +288,7 @@ export default function DashboardPage() {
 
     const openWhatsApp = (msg: string) => {
         const url = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(msg)}`;
-        window.open(url, '_blank');
+        window.open(url, '_blank', 'noreferrer');
     };
 
     const renderDashboard = () => (
@@ -299,6 +300,7 @@ export default function DashboardPage() {
             <MenuCard title="Donasi QRIS" icon="qr_code_2" color="bg-purple-100 text-purple-600" onClick={() => setCurrentView("donasi")} />
             <MenuCard title="Kesehatan" icon="medical_services" color="bg-red-100 text-red-600" onClick={() => setCurrentView("kesehatan")} />
             <MenuCard title="Perizinan" icon="assignment_turned_in" color="bg-amber-100 text-amber-600" onClick={() => setCurrentView("perizinan")} />
+            <MenuCard title="Kedisiplinan" icon="gavel" color="bg-rose-100 text-rose-600" onClick={() => setCurrentView("kedisiplinan")} />
             <MenuCard title="Ranking Santri" icon="emoji_events" color="bg-yellow-100 text-yellow-600" onClick={() => setCurrentView("ranking")} />
             <MenuCard title="Galeri Kegiatan" icon="auto_stories" color="bg-teal-100 text-teal-600" onClick={() => setCurrentView("galeri")} />
         </div>
@@ -427,9 +429,10 @@ export default function DashboardPage() {
         <div className="space-y-6">
             <ViewHeader title="Donasi Pesantren" onBack={() => setCurrentView("dashboard")} />
             <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 text-center">
-                <p className="text-sm text-gray-600 mb-6 italic">"Scan QRIS untuk berdonasi membantu pembangunan dan kegiatan Pesantren Nurul Ihsan."</p>
+                <p className="text-sm text-gray-600 mb-6 italic">&quot;Scan QRIS untuk berdonasi membantu pembangunan dan kegiatan Pesantren Nurul Ihsan.&quot;</p>
                 <div className="bg-gray-50 p-4 rounded-2xl inline-block mb-6 border-4 border-emerald-600/10">
-                    <img src="file:///C:/Users/User/.gemini/antigravity/brain/f98276c6-5b8e-4af1-8005-76f62b5c878a/qris_donasi_nurulihsan_1773423891927.png" alt="QRIS Donasi" className="w-64 h-auto" />
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/qris_donasi_pesantren.jpg" alt="QRIS Donasi" className="w-64 h-auto" />
                 </div>
                 <div className="grid grid-cols-2 gap-3 mb-6">
                     {["20000", "50000", "100000", "500000"].map(v => (
@@ -465,11 +468,11 @@ export default function DashboardPage() {
                     <InfoRow label="Pemeriksaan" value={health.is_examined ? "✅ Sudah Diperiksa" : "⌛ Menunggu"} />
                     <div className="pt-4 border-t border-gray-50">
                         <p className="text-xs text-gray-400 font-semibold uppercase tracking-widest mb-1">Catatan Pengurus</p>
-                        <p className="text-gray-700 italic">"{health.notes || "Sedang dalam pantauan ustadz/ustadzah."}"</p>
+                        <p className="text-gray-700 italic">&quot;{health.notes || "Sedang dalam pantauan ustadz/ustadzah."}&quot;</p>
                     </div>
                 </div>
             )}
-            <div className="text-center bg-gray-100 p-4 rounded-2xl italic text-xs text-gray-500">
+            <div className="text-center bg-gray-100 p-4 rounded-2xl italic text-[10px] text-gray-500">
                 Pembaruan terakhir oleh tim kesehatan pesantren pada {formatDate(health?.created_at || new Date().toISOString())}
             </div>
         </div>
@@ -499,6 +502,37 @@ export default function DashboardPage() {
                         </div>
                     ))
                 )}
+            </div>
+        </div>
+    );
+
+    const renderKedisiplinanView = () => (
+        <div className="space-y-6">
+            <ViewHeader title="Catatan Kedisiplinan" onBack={() => setCurrentView("dashboard")} />
+            <div className="space-y-4">
+                {violations.length === 0 ? (
+                    <EmptyState msg="Alhamdulillah, tidak ada catatan pelanggaran" />
+                ) : (
+                    violations.map(v => (
+                        <div key={v.id} className="bg-white p-5 rounded-3xl shadow-sm border border-red-100 flex items-start gap-4">
+                            <div className="w-12 h-12 rounded-full flex items-center justify-center bg-red-100 text-red-600 shrink-0">
+                                <span className="material-icons">gavel</span>
+                            </div>
+                            <div className="flex-1">
+                                <p className="font-bold text-gray-900">{v.violation_type} ({v.points} poin)</p>
+                                <p className="text-xs text-gray-500 mb-2">{formatDate(v.violation_date)}</p>
+                                <div className="bg-red-50 p-3 rounded-xl border border-red-100 text-xs mt-2">
+                                    <p className="font-semibold text-red-800 mb-1">Tindakan/Hukuman:</p>
+                                    <p className="text-red-600 font-bold">{v.punishment || "Menunggu keputusan pengurus"}</p>
+                                </div>
+                            </div>
+                        </div>
+                    ))
+                )}
+            </div>
+            <div className="bg-emerald-50 p-4 rounded-2xl text-center border border-emerald-100 mt-6">
+                <span className="material-icons text-emerald-500 mb-2 block">info</span>
+                <p className="text-xs text-emerald-800 font-medium">Sistem poin pelanggaran terintegrasi langsung dengan database pengasuhan santri.</p>
             </div>
         </div>
     );
@@ -538,6 +572,7 @@ export default function DashboardPage() {
             <div className="grid grid-cols-2 gap-3">
                 {gallery.map(g => (
                     <div key={g.id} className="relative group rounded-3xl overflow-hidden shadow-md aspect-square bg-gray-200">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={g.url} alt={g.title} className="w-full h-full object-cover transition-transform group-active:scale-110" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-4">
                             <span className="text-[10px] text-emerald-400 font-black uppercase tracking-widest mb-0.5">{g.category}</span>
@@ -561,11 +596,17 @@ export default function DashboardPage() {
             case "donasi": return renderDonasiView();
             case "kesehatan": return renderKesehatanView();
             case "perizinan": return renderPerizinanView();
+            case "kedisiplinan": return renderKedisiplinanView();
             case "ranking": return renderRankingView();
             case "galeri": return renderGaleriView();
             default: return (
                 <>
-                    <SummaryModule todaySpend={todaySpend} limit={student.batas_jajan_harian || 15000} balance={wallet?.balance || 0} nUnpaid={billings.filter(b => b.status !== 'PAID').length} />
+                    <SummaryModule 
+                        todaySpend={todaySpend} 
+                        limit={student?.batas_jajan_harian || 15000} 
+                        balance={wallet?.balance || 0} 
+                        nUnpaid={billings.filter(b => b.status !== 'PAID').length} 
+                    />
                     {renderDashboard()}
                     <TahfidzModule data={tahfidz} />
                     <ActivityModule attendance={attendance.slice(0,3)} meals={meals.slice(0,3)} />
@@ -780,10 +821,10 @@ function InfoRow({ label, value }: any) {
     );
 }
 
-function EmptyState({ msg }: any) {
+function EmptyState({ msg }: { msg: string }) {
     return (
         <div className="p-10 text-center text-gray-400">
-            <p className="text-sm font-bold italic">"{msg}"</p>
+            <p className="text-sm font-bold italic">&quot;{msg}&quot;</p>
         </div>
     );
 }
