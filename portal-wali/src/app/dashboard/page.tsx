@@ -72,13 +72,12 @@ interface EmoneyTransaction {
     balance_after: number;
 }
 
-interface HealthRecord {
-    id: number;
-    status: string; // 'SEHAT' | 'SAKIT'
-    keluhan: string;
-    is_examined: boolean;
-    notes: string;
-    created_at: string;
+interface MedicalRecord {
+    medical_id: number;
+    complaint: string;
+    diagnosis: string | null;
+    medicine_given: string | null;
+    timestamp: string;
 }
 
 interface Ranking {
@@ -119,7 +118,7 @@ export default function DashboardPage() {
     const [violations, setViolations] = useState<StudentViolation[]>([]);
     const [leaves, setLeaves] = useState<StudentLeave[]>([]);
     const [transactions, setTransactions] = useState<EmoneyTransaction[]>([]);
-    const [health, setHealth] = useState<HealthRecord | null>(null);
+    const [health, setHealth] = useState<MedicalRecord | null>(null);
     const [rankings, setRankings] = useState<Ranking[]>([]);
     const [gallery, setGallery] = useState<GalleryItem[]>([]);
     const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -209,8 +208,19 @@ export default function DashboardPage() {
             if (lData) setLeaves(lData);
 
             // 6. Fetch New Features (with mocks if needed)
-            // Health
-            const { data: hData } = await supabase.from('student_health_records').select('*').eq('student_id', studentId).order('created_at', { ascending: false }).limit(1).single();
+            // Health mapped from medical_records 
+            // We assume they are sick if there's a record in the last 7 days
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+            const { data: hData } = await supabase
+                .from('medical_records')
+                .select('*')
+                .eq('student_id', studentId)
+                .gte('timestamp', sevenDaysAgo.toISOString())
+                .order('timestamp', { ascending: false })
+                .limit(1)
+                .single();
             setHealth(hData || null);
 
             // Ranking (Mock for now)
@@ -451,29 +461,32 @@ export default function DashboardPage() {
     const renderKesehatanView = () => (
         <div className="space-y-6">
             <ViewHeader title="Kesehatan Santri" onBack={() => setCurrentView("dashboard")} />
-            <div className={`p-6 rounded-3xl shadow-lg ${health?.status === 'SAKIT' ? 'bg-red-500 text-white' : 'bg-emerald-500 text-white'}`}>
+            <div className={`p-6 rounded-3xl shadow-lg ${health ? 'bg-red-500 text-white' : 'bg-emerald-500 text-white'}`}>
                 <div className="flex items-center gap-4">
                     <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md">
-                        <span className="material-icons text-3xl">{health?.status === 'SAKIT' ? 'sick' : 'sentiment_very_satisfied'}</span>
+                        <span className="material-icons text-3xl">{health ? 'sick' : 'sentiment_very_satisfied'}</span>
                     </div>
                     <div>
-                        <h4 className="text-xl font-bold">{health?.status === 'SAKIT' ? 'Status: Sakit' : 'Alhamdulillah, Sehat'}</h4>
-                        <p className="text-white/80 text-sm">{health?.status === 'SAKIT' ? `Terdeteksi: ${formatDate(health.created_at)}` : 'Santri dalam keadaan prima.'}</p>
+                        <h4 className="text-xl font-bold">{health ? 'Status: Sakit / Perawatan' : 'Alhamdulillah, Sehat'}</h4>
+                        <p className="text-white/80 text-sm">{health ? `Terdeteksi: ${formatDate(health.timestamp)}` : 'Santri dalam keadaan prima dan sehat.'}</p>
                     </div>
                 </div>
             </div>
-            {health?.status === 'SAKIT' && (
+            {health && (
                 <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 space-y-4">
-                    <InfoRow label="Keluhan" value={health.keluhan} />
-                    <InfoRow label="Pemeriksaan" value={health.is_examined ? "✅ Sudah Diperiksa" : "⌛ Menunggu"} />
+                    <InfoRow label="Keluhan Utama" value={health.complaint} />
+                    <InfoRow label="Pemeriksaan" value={health.diagnosis ? "✅ Sudah Diperiksa" : "⌛ Menunggu / Memantau"} />
                     <div className="pt-4 border-t border-gray-50">
-                        <p className="text-xs text-gray-400 font-semibold uppercase tracking-widest mb-1">Catatan Pengurus</p>
-                        <p className="text-gray-700 italic">&quot;{health.notes || "Sedang dalam pantauan ustadz/ustadzah."}&quot;</p>
+                        <p className="text-xs text-gray-400 font-semibold uppercase tracking-widest mb-1">Diagnosa & Tindakan</p>
+                        <p className="text-gray-700 italic">&quot;{health.diagnosis || "Sedang dalam pantauan kesehatan."}&quot;</p>
+                        {health.medicine_given && (
+                            <p className="text-emerald-700 text-xs font-bold mt-2">Obat: {health.medicine_given}</p>
+                        )}
                     </div>
                 </div>
             )}
             <div className="text-center bg-gray-100 p-4 rounded-2xl italic text-[10px] text-gray-500">
-                Pembaruan terakhir oleh tim kesehatan pesantren pada {formatDate(health?.created_at || new Date().toISOString())}
+                Data kesehatan terintegrasi dengan klinik pesantren. Pembaruan terakhir: {formatDate(health?.timestamp || new Date().toISOString())}
             </div>
         </div>
     );
