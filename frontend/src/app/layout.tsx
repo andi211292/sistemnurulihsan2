@@ -33,7 +33,13 @@ export default function RootLayout({
     }
   }, [pathname, router]);
 
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const isLogin = pathname === "/login";
+
+  // Close sidebar on path change (mobile)
+  useEffect(() => {
+    setIsSidebarOpen(false);
+  }, [pathname]);
 
   return (
     <html lang="id">
@@ -50,13 +56,13 @@ export default function RootLayout({
         ) : (
           <div className="flex min-h-screen print:block print:bg-white text-gray-900 font-sans antialiased">
             <div className="print:hidden">
-              <Sidebar />
+              <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
             </div>
-            <div className="flex-1 ml-64 print:ml-0 flex flex-col min-h-screen print:min-h-0 pt-0">
+            <div className="flex-1 lg:ml-64 print:ml-0 flex flex-col min-h-screen print:min-h-0 pt-0 transition-all duration-300">
               <div className="print:hidden">
-                <Navbar />
+                <Navbar onMenuClick={() => setIsSidebarOpen(true)} />
               </div>
-              <main className="p-8 print:p-0 print:m-0 flex-1 overflow-x-hidden print:overflow-visible">
+              <main className="p-4 md:p-8 print:p-0 print:m-0 flex-1 overflow-x-hidden print:overflow-visible">
                 {children}
               </main>
             </div>
