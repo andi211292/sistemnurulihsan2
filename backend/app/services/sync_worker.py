@@ -386,6 +386,39 @@ async def sync_data_to_cloud():
                     local_db.rollback()
                     logger.error(f"Error syncing Student Leaves: {e}")
 
+                # ====== 10. Sync Medical Records (Kesehatan Santri) ======
+                try:
+                    medical_records_to_sync = local_db.query(models.MedicalRecord).filter(
+                        models.MedicalRecord.sync_status == False
+                    ).all()
+
+                    if medical_records_to_sync:
+                        for med in medical_records_to_sync:
+                            med_dict = {
+                                "medical_id": med.medical_id,
+                                "student_id": med.student_id,
+                                "complaint": med.complaint,
+                                "diagnosis": med.diagnosis,
+                                "medicine_given": med.medicine_given,
+                                "handled_by_user_id": med.handled_by_user_id,
+                                "timestamp": med.timestamp,
+                                "sync_status": True
+                            }
+                            stmt = pg_insert(models.MedicalRecord).values(med_dict)
+                            stmt = stmt.on_conflict_do_update(
+                                index_elements=['medical_id'],
+                                set_=med_dict
+                            )
+                            cloud_db.execute(stmt)
+                            med.sync_status = True
+                            logger_count += 1
+                        cloud_db.commit()
+                        local_db.commit()
+                except Exception as e:
+                    cloud_db.rollback()
+                    local_db.rollback()
+                    logger.error(f"Error syncing Medical Records: {e}")
+
                 if logger_count > 0:
                     logger.info(f"[{datetime.now()}] Sinkronisasi SUKSES: {logger_count} entri sinkronisasi baru dipush.")
 

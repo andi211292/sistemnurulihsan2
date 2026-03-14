@@ -38,6 +38,7 @@ interface StudentLeave {
     start_date: string;
     end_date: string;
     reason: string;
+    notes?: string;
     is_returned: boolean;
 }
 
@@ -505,8 +506,9 @@ export default function DashboardPage() {
                                     <span className="material-icons">{l.is_returned ? 'check_circle' : 'directions_walk'}</span>
                                 </div>
                                 <div>
-                                    <p className="font-bold text-gray-900 capitalize">{l.reason.replace('_', ' ')}</p>
-                                    <p className="text-xs text-gray-500">{formatDate(l.start_date)} - {formatDate(l.end_date)}</p>
+                                    <p className="font-bold text-gray-900 capitalize leading-tight">{l.reason.replace('_', ' ')}</p>
+                                    {l.notes && <p className="text-sm text-gray-700 italic mt-0.5">&quot;{l.notes}&quot;</p>}
+                                    <p className="text-xs text-gray-500 mt-1">{formatDate(l.start_date)} - {formatDate(l.end_date)}</p>
                                 </div>
                             </div>
                             <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${l.is_returned ? 'text-gray-400 border border-gray-200' : 'bg-amber-500 text-white'}`}>
