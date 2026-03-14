@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -19,7 +19,7 @@ def get_db():
     finally:
         db.close()
 
-@router.get("/", response_model=List[schemas.StudentRankingDetailResponse])
+@router.get("", response_model=List[schemas.StudentRankingDetailResponse])
 def get_rankings(month: str = None, year: str = None, category: str = None, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     query = db.query(models.StudentRanking)
     if month: query = query.filter(models.StudentRanking.month == month)
@@ -47,7 +47,7 @@ def get_rankings(month: str = None, year: str = None, category: str = None, skip
         result.append(detail)
     return result
 
-@router.post("/", response_model=schemas.StudentRankingResponse)
+@router.post("", response_model=schemas.StudentRankingResponse)
 def create_ranking(
     record: schemas.StudentRankingCreate,
     db: Session = Depends(get_db)

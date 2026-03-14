@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
@@ -27,7 +27,7 @@ def get_db():
 UPLOAD_DIR = "uploads/gallery"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-@router.get("/", response_model=List[schemas.GalleryResponse])
+@router.get("", response_model=List[schemas.GalleryResponse])
 def get_gallery(category: Optional[str] = None, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     query = db.query(models.GalleryActivity)
     if category:
@@ -51,7 +51,7 @@ def get_gallery(category: Optional[str] = None, skip: int = 0, limit: int = 100,
         
     return result
 
-@router.post("/", response_model=schemas.GalleryResponse)
+@router.post("", response_model=schemas.GalleryResponse)
 def create_gallery_item(
     item: schemas.GalleryCreate,
     db: Session = Depends(get_db)

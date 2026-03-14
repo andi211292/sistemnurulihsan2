@@ -22,17 +22,16 @@ async def sync_data_to_cloud():
         logger.warning(f"[{datetime.now()}] Worker aktif, namun URL Database Cloud kosong. Abaikan sinkronisasi.")
         return
 
-    # Check mapping mapping of cloud engine models initially
-    try:
-        # We ensure cloud schema has the latest models (Usually done via migrations or manual)
-        models.Base.metadata.create_all(bind=cloud_engine)
-    except Exception as e:
-         logger.warning(f"[{datetime.now()}] Gagal memverifikasi tabel Cloud (Internet mungkin mati): {e}")
-
     logger.info(f"[{datetime.now()}] Cloud Sync Worker berjalan di latar belakang (Setiap {SYNC_INTERVAL_SECONDS} detik).")
 
     while True:
         try:
+            # Check mapping of cloud engine models periodically inside loop to avoid hanging startup
+            try:
+                models.Base.metadata.create_all(bind=cloud_engine)
+            except Exception as e:
+                 logger.debug(f"Gagal verifikasi tabel Cloud: {e}")
+
             # Create isolated sessions for this cycle
             local_db = SessionLocal()
             cloud_db = CloudSessionLocal()
