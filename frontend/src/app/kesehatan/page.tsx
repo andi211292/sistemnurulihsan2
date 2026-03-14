@@ -43,12 +43,12 @@ export default function KesehatanPage() {
         try {
             // Load students for dropdown
             if (students.length === 0) {
-                const stRes = await apiFetch(`/api/students/`);
+                const stRes = await apiFetch(`/api/students`);
                 if (stRes.ok) setStudents(await stRes.json());
             }
 
             // Load medical records
-            const mRes = await apiFetch(`/api/medical/`);
+            const mRes = await apiFetch(`/api/medical`);
             if (mRes.ok) setRecords(await mRes.json());
         } catch (e) {
             console.error(e);
@@ -63,14 +63,23 @@ export default function KesehatanPage() {
         e.preventDefault();
         setIsSaving(true);
         try {
-            // In a real scenario, handled_by_user_id comes from session.
-            // Using a dummy user_id=1 for now assuming admin is user 1.
+            // Get real user_id from localStorage if available
+            const savedUser = localStorage.getItem("user");
+            let userId = 1;
+            if (savedUser) {
+                try {
+                    userId = JSON.parse(savedUser).user_id;
+                } catch (err) {
+                    console.error("Failed to parse user from localStorage", err);
+                }
+            }
+
             const payload = {
                 student_id: parseInt(form.student_id),
                 complaint: form.complaint,
-                handled_by_user_id: 1 
+                handled_by_user_id: userId
             };
-            const res = await apiFetch(`/api/medical/`, {
+            const res = await apiFetch(`/api/medical`, {
                 method: "POST",
                 body: JSON.stringify(payload)
             });

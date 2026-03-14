@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -19,7 +19,7 @@ def get_db():
     finally:
         db.close()
 
-@router.get("/", response_model=List[schemas.MedicalRecordDetailResponse])
+@router.get("", response_model=List[schemas.MedicalRecordDetailResponse])
 def get_medical_records(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     records = db.query(models.MedicalRecord).order_by(models.MedicalRecord.timestamp.desc()).offset(skip).limit(limit).all()
     
@@ -43,7 +43,7 @@ def get_medical_records(skip: int = 0, limit: int = 100, db: Session = Depends(g
         result.append(detail)
     return result
 
-@router.post("/", response_model=schemas.MedicalRecordResponse)
+@router.post("", response_model=schemas.MedicalRecordResponse)
 def create_medical_record(
     record: schemas.MedicalRecordCreate,
     db: Session = Depends(get_db)

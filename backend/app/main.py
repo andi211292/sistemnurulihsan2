@@ -61,7 +61,7 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Username already registered")
     return crud.create_user(db=db, user=user)
 
-@app.get("/api/students/", response_model=List[schemas.StudentResponse], tags=["Students"])
+@app.get("/api/students", response_model=List[schemas.StudentResponse], tags=["Students"])
 def read_students(skip: int = 0, limit: int = 5000, db: Session = Depends(get_db)):
     students = crud.get_students(db, skip=skip, limit=limit)
     return students
