@@ -7,6 +7,7 @@ export default function Home() {
   const [userRole, setUserRole] = useState("SUPER_ADMIN");
   const [totalStudents, setTotalStudents] = useState(0);
   const [emptyClassesCount, setEmptyClassesCount] = useState(0);
+  const [totalExpenseMonth, setTotalExpenseMonth] = useState(0);
 
   useEffect(() => {
     const savedRole = localStorage.getItem("user_role");
@@ -31,6 +32,16 @@ export default function Home() {
           if (Array.isArray(dataObj)) {
             setEmptyClassesCount(dataObj.length);
           }
+        }
+
+        // Get expenses for current month
+        const currentMonth = new Date().getMonth() + 1;
+        const currentYear = new Date().getFullYear();
+        const resExpense = await apiFetch(`/api/keuangan/pengeluaran/?month=${currentMonth}&year=${currentYear}`);
+        if(resExpense.ok) {
+           const expData = await resExpense.json();
+           const total = expData.reduce((sum: number, item: any) => sum + item.amount, 0);
+           setTotalExpenseMonth(total);
         }
       } catch (e) {
         console.error("Failed to load dashboard stats", e);
@@ -99,6 +110,19 @@ export default function Home() {
             <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"></path></svg>
           </div>
         </div>
+
+        {/* Stat Card 4 (Expenses) */}
+        {(userRole === "SUPER_ADMIN" || userRole === "KASIR_KOP_PUSAT") && (
+            <div className="bg-gradient-to-br from-rose-50 to-red-50 rounded-2xl shadow-sm border border-red-100 p-6 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-red-500 mb-1">Beban Pengeluaran (Bulan Ini)</p>
+                <h3 className="text-2xl font-bold text-red-700">Rp {totalExpenseMonth.toLocaleString('id-ID')}</h3>
+              </div>
+              <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center text-red-600">
+                <span className="material-icons">receipt_long</span>
+              </div>
+            </div>
+        )}
       </div>
 
       {/* Quick Actions / Info Banner */}

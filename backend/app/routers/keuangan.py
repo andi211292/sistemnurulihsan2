@@ -484,3 +484,37 @@ def get_tunggakan_syahriyah(
         )
 
     return {"bulan": bulan, "tahun": tahun, "total_tunggakan": len(result), "data": result}
+
+# --- EXPENSE API ROUTES ---
+
+@router.get("/pengeluaran/kategori", response_model=List[schemas.ExpenseCategoryResponse])
+def get_expense_categories(db: Session = Depends(get_db)):
+    return crud.get_expense_categories(db)
+
+@router.post("/pengeluaran/kategori", response_model=schemas.ExpenseCategoryResponse)
+def create_expense_category(
+    category: schemas.ExpenseCategoryCreate, 
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user_payload)
+):
+    return crud.create_expense_category(db, category)
+
+@router.get("/pengeluaran/", response_model=List[schemas.ExpenseResponse])
+def get_expenses(
+    month: Optional[int] = None, 
+    year: Optional[int] = None, 
+    db: Session = Depends(get_db)
+):
+    return crud.get_expenses(db, month=month, year=year)
+
+@router.post("/pengeluaran/", response_model=schemas.ExpenseResponse)
+def create_expense(
+    expense: schemas.ExpenseCreate, 
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user_payload)
+):
+    user_id = current_user.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token payload")
+        
+    return crud.create_expense(db, expense=expense, recorded_by_user_id=user_id)

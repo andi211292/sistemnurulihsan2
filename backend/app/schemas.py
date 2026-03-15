@@ -1,7 +1,7 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 from datetime import datetime, date
-from .models import RoleEnum, TransactionTypeEnum, MealTypeEnum, AttendanceTypeEnum, AttendanceStatusEnum, GenderEnum
+from .models import RoleEnum, TransactionTypeEnum, MealTypeEnum, AttendanceTypeEnum, AttendanceStatusEnum, GenderEnum, ExpenseFrequencyEnum
 
 # --- User Schemas ---
 class UserBase(BaseModel):
@@ -376,6 +376,42 @@ class GalleryResponse(GalleryBase):
     uploaded_by_user_id: int
     created_at: datetime
     uploader_name: str
+
+    class Config:
+        from_attributes = True
+
+# --- Expense Schemas ---
+class ExpenseCategoryBase(BaseModel):
+    name: str
+    frequency: ExpenseFrequencyEnum = ExpenseFrequencyEnum.INSIDENTAL
+    is_active: bool = True
+
+class ExpenseCategoryCreate(ExpenseCategoryBase):
+    pass
+
+class ExpenseCategoryResponse(ExpenseCategoryBase):
+    category_id: int
+    sync_status: bool
+
+    class Config:
+        from_attributes = True
+
+class ExpenseBase(BaseModel):
+    category_id: int
+    amount: float
+    expense_date: date
+    description: Optional[str] = None
+
+class ExpenseCreate(ExpenseBase):
+    pass
+
+class ExpenseResponse(ExpenseBase):
+    expense_id: int
+    recorded_by_user_id: int
+    created_at: datetime
+    sync_status: bool
+    category: Optional[ExpenseCategoryResponse] = None
+    recorded_by_name: Optional[str] = None
 
     class Config:
         from_attributes = True

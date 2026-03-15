@@ -316,3 +316,54 @@ def get_latest_device_logs(db: Session, limit: int = 5):
         "attendance": att_response,
         "meals": meal_response
     }
+
+# --- Expense CRUD ---
+def get_expense_categories(db: Session):
+    return db.query(models.ExpenseCategory).filter(models.ExpenseCategory.is_active == True).all()
+
+def create_expense_category(db: Session, category: schemas.ExpenseCategoryCreate):
+    db_category = models.ExpenseCategory(
+        name=category.name,
+        frequency=category.frequency,
+        is_active=category.is_active
+    )
+    db.add(db_category)
+    db.commit()
+    db.refresh(db_category)
+    return db_category
+
+def get_expenses(db: Session, month: Optional[int] = None, year: Optional[int] = None):
+    query = db.query(models.Expense)
+    
+    if month and year:
+        from sqlalchemy import extract
+        query = query.filter(extract('month', models.Expense.expense_date) == month)
+        query = query.filter(extract('year', models.Expense.expense_date) == year)
+        
+    expenses = query.order_by(models.Expense.expense_date.desc()).all()
+    
+    for exp in expenses:
+        exp.category = db.query(models.ExpenseCategory).filter(models.ExpenseCategory.category_id == exp.category_id).first()
+        user = db.query(models.User).filter(models.User.user_id == exp.recorded_by_user_id).first()
+        exp.recorded_by_name = user.username if user else "Admin"
+        
+    return expenses
+
+def create_expense(db: Session, expense: schemas.ExpenseCreate, recorded_by_user_id: int):
+    db_expense = models.Expense(
+        category_id=expense.category_id,
+        amount=expense.amount,
+        expense_date=expense.expense_date,
+        description=expense.description,
+        recorded_by_user_id=recorded_by_user_id
+    )
+    db.add(db_expense)
+    db.commit()
+    db.refresh(db_expense)
+    
+    # Attach nested items for response
+    db_expense.category = db.query(models.ExpenseCategory).filter(models.ExpenseCategory.category_id == db_expense.category_id).first()
+    user = db.query(models.User).filter(models.User.user_id == db_expense.recorded_by_user_id).first()
+    db_expense.recorded_by_name = user.username if user else "Admin"
+    
+    return db_expense

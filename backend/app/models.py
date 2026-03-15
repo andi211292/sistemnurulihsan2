@@ -354,3 +354,30 @@ class GalleryActivity(Base):
     uploaded_by_user_id = Column(Integer, ForeignKey("users.user_id"))
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
+class ExpenseFrequencyEnum(str, enum.Enum):
+    HARIAN = "HARIAN"
+    MINGGUAN = "MINGGUAN"
+    BULANAN = "BULANAN"
+    INSIDENTAL = "INSIDENTAL"
+
+class ExpenseCategory(Base):
+    __tablename__ = "expense_categories"
+
+    category_id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True) # e.g. Listrik, Wifi, Honor, Beli Sapu
+    frequency = Column(SqlEnum(ExpenseFrequencyEnum), default=ExpenseFrequencyEnum.INSIDENTAL)
+    is_active = Column(Boolean, default=True)
+    sync_status = Column(Boolean, default=False)
+
+class Expense(Base):
+    __tablename__ = "expenses"
+
+    expense_id = Column(Integer, primary_key=True, index=True)
+    category_id = Column(Integer, ForeignKey("expense_categories.category_id"))
+    amount = Column(Float)
+    expense_date = Column(Date)
+    description = Column(String, nullable=True)
+    recorded_by_user_id = Column(Integer, ForeignKey("users.user_id"))
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    sync_status = Column(Boolean, default=False)
+

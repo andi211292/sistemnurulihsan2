@@ -422,6 +422,69 @@ async def sync_data_to_cloud():
                     local_db.rollback()
                     logger.error(f"Error syncing Medical Records: {e}")
 
+                # ====== 11. Sync Expense Categories ======
+                try:
+                    expense_categories_to_sync = local_db.query(models.ExpenseCategory).filter(
+                        models.ExpenseCategory.sync_status == False
+                    ).all()
+
+                    if expense_categories_to_sync:
+                        for ec in expense_categories_to_sync:
+                            ec_dict = {
+                                "category_id": ec.category_id,
+                                "name": ec.name,
+                                "frequency": ec.frequency.value if hasattr(ec.frequency, 'value') else ec.frequency,
+                                "is_active": ec.is_active,
+                                "sync_status": True
+                            }
+                            stmt = pg_insert(models.ExpenseCategory).values(ec_dict)
+                            stmt = stmt.on_conflict_do_update(
+                                index_elements=['category_id'],
+                                set_=ec_dict
+                            )
+                            cloud_db.execute(stmt)
+                            ec.sync_status = True
+                            logger_count += 1
+                        cloud_db.commit()
+                        local_db.commit()
+                except Exception as e:
+                    cloud_db.rollback()
+                    local_db.rollback()
+                    logger.error(f"Error syncing Expense Categories: {e}")
+                    
+                # ====== 12. Sync Expenses ======
+                try:
+                    expenses_to_sync = local_db.query(models.Expense).filter(
+                        models.Expense.sync_status == False
+                    ).all()
+
+                    if expenses_to_sync:
+                        for ex in expenses_to_sync:
+                            ex_dict = {
+                                "expense_id": ex.expense_id,
+                                "category_id": ex.category_id,
+                                "amount": ex.amount,
+                                "expense_date": ex.expense_date,
+                                "description": ex.description,
+                                "recorded_by_user_id": ex.recorded_by_user_id,
+                                "created_at": ex.created_at,
+                                "sync_status": True
+                            }
+                            stmt = pg_insert(models.Expense).values(ex_dict)
+                            stmt = stmt.on_conflict_do_update(
+                                index_elements=['expense_id'],
+                                set_=ex_dict
+                            )
+                            cloud_db.execute(stmt)
+                            ex.sync_status = True
+                            logger_count += 1
+                        cloud_db.commit()
+                        local_db.commit()
+                except Exception as e:
+                    cloud_db.rollback()
+                    local_db.rollback()
+                    logger.error(f"Error syncing Expenses: {e}")
+
                 if logger_count > 0:
                     logger.info(f"[{datetime.now()}] Sinkronisasi SUKSES: {logger_count} entri sinkronisasi baru dipush.")
 
