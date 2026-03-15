@@ -136,10 +136,15 @@ class PaymentTransactionBase(BaseModel):
 
 class PaymentTransactionCreate(PaymentTransactionBase):
     pass
+    # Note: received_by_user_id is handled in the backend route, not strictly required from frontend POST if we infer from JWT.
+    # But we can allow it just in case.
+    received_by_user_id: Optional[int] = None
 
 class PaymentTransactionResponse(PaymentTransactionBase):
     id: int
     payment_date: datetime
+    received_by_user_id: Optional[int] = None
+    receiver_name: Optional[str] = None
     sync_status: bool
 
     class Config:

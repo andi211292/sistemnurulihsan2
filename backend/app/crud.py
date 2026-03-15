@@ -226,12 +226,13 @@ def create_bulk_billings(db: Session, request: schemas.BillingBulkCreate):
     db.commit()
     return {"created": count_created, "skipped": count_skipped, "gender": request.gender.value}
 
-def add_billing_payment(db: Session, billing_id: int, amount_paid: float, notes: Optional[str] = None):
+def add_billing_payment(db: Session, billing_id: int, amount_paid: float, notes: Optional[str] = None, received_by_user_id: Optional[int] = None):
     # 1. Create Transaction
     payment = models.PaymentTransaction(
         billing_id=billing_id,
         amount_paid=amount_paid,
-        notes=notes
+        notes=notes,
+        received_by_user_id=received_by_user_id
     )
     db.add(payment)
     db.commit()
@@ -251,6 +252,16 @@ def add_billing_payment(db: Session, billing_id: int, amount_paid: float, notes:
             
         db.commit()
         db.refresh(billing)
+        
+    # Inject username dynamically for response
+    if payment.received_by_user_id:
+        user = db.query(models.User).filter(models.User.user_id == payment.received_by_user_id).first()
+        if user:
+            payment.receiver_name = user.username
+        else:
+            payment.receiver_name = "Unknown Admin"
+    else:
+        payment.receiver_name = "System"
         
     return payment
 

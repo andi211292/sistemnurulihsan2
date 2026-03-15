@@ -302,6 +302,8 @@ async def sync_data_to_cloud():
                                 "billing_id": pay.billing_id,
                                 "amount_paid": pay.amount_paid,
                                 "payment_date": pay.payment_date,
+                                "received_by_user_id": pay.received_by_user_id,
+                                "receiver_name": pay.receiver_name,
                                 "notes": pay.notes,
                                 "sync_status": True
                             }

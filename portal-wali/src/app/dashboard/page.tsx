@@ -17,12 +17,21 @@ interface Wallet {
     balance: number;
 }
 
+interface PaymentTransaction {
+    id: number;
+    amount_paid: number;
+    payment_date: string;
+    received_by_user_id: number | null;
+    receiver_name?: string;
+}
+
 interface Billing {
     id: number;
     month: string;
     year: string;
     total_amount: number;
     status: string;
+    payment_transactions?: PaymentTransaction[];
 }
 
 interface StudentViolation {
@@ -190,8 +199,11 @@ export default function DashboardPage() {
                 }
             }
 
-            // 3. Fetch Billings
-            const { data: bData } = await supabase.from('billings').select('*').eq('student_id', studentId).order('id', { ascending: false });
+            // 3. Fetch Billings with Transactions
+            const { data: bData } = await supabase.from('billings')
+                .select('*, payment_transactions(*)')
+                .eq('student_id', studentId)
+                .order('id', { ascending: false });
             if (bData) setBillings(bData);
 
             // 4. Fetch Activities
@@ -604,6 +616,75 @@ export default function DashboardPage() {
         </div>
     );
 
+    const renderSyahriyahView = () => (
+        <div className="space-y-6">
+            <ViewHeader title="Riwayat Syahriyah" onBack={() => setCurrentView("dashboard")} />
+            
+            <div className="space-y-4">
+                {billings.length === 0 ? (
+                    <EmptyState msg="Belum ada data tagihan Syahriyah" />
+                ) : (
+                    billings.map(b => {
+                        const totalPaid = b.payment_transactions ? b.payment_transactions.reduce((acc, t) => acc + t.amount_paid, 0) : 0;
+                        const sisa = b.total_amount - totalPaid;
+                        
+                        return (
+                            <div key={b.id} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div>
+                                        <p className="font-black text-gray-900 leading-tight border-b-2 border-emerald-400 inline-block pb-0.5 mb-1">
+                                            {b.month} {b.year}
+                                        </p>
+                                        <div className="mt-2 text-xs">
+                                            <p className="text-gray-500">Total Biaya: <span className="font-bold text-gray-800">{formatRupiah(b.total_amount)}</span></p>
+                                            <p className="text-gray-500">Telah Dibayar: <span className="font-bold text-emerald-600">{formatRupiah(totalPaid)}</span></p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-lg ${b.status === 'PAID' ? 'bg-emerald-100 text-emerald-700' : b.status === 'PARTIAL' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
+                                            {b.status === 'PAID' ? 'LUNAS' : b.status === 'PARTIAL' ? 'DICICIL' : 'BELUM BAYAR'}
+                                        </span>
+                                        {sisa > 0 && (
+                                            <p className="text-xs font-bold text-red-600 mt-2">Sisa: {formatRupiah(sisa)}</p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Transaction History */}
+                                {b.payment_transactions && b.payment_transactions.length > 0 && (
+                                    <div className="mt-4 pt-4 border-t border-gray-100">
+                                        <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-2">Riwayat Pembayaran</p>
+                                        <div className="space-y-2">
+                                            {b.payment_transactions.map(t => (
+                                                <div key={t.id} className="bg-gray-50 p-3 rounded-2xl flex justify-between items-center text-xs">
+                                                    <div>
+                                                        <p className="font-bold text-emerald-700">+{formatRupiah(t.amount_paid)}</p>
+                                                        <p className="text-gray-500 mt-0.5">{formatDate(t.payment_date)}</p>
+                                                    </div>
+                                                    <div className="text-right bg-white border border-gray-100 px-3 py-1.5 rounded-xl shadow-sm">
+                                                        <p className="text-[9px] text-gray-400 font-bold uppercase mb-0.5">Diterima Oleh</p>
+                                                        <p className="font-bold text-gray-700 capitalize">{t.receiver_name || "Admin"}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })
+                )}
+            </div>
+            
+            <div className="bg-blue-50 p-4 rounded-2xl text-center border border-blue-100 mt-4 flex items-start gap-3">
+                <span className="material-icons text-blue-500">contact_support</span>
+                <p className="text-xs text-blue-800 font-medium text-left leading-relaxed">
+                    Jika terdapat ketidaksesuaian data pembayaran, silakan hubungi Kasir Syahriyah Pesantren.
+                </p>
+            </div>
+        </div>
+    );
+
     const renderContent = () => {
         switch(currentView) {
             case "jajan": return renderJajanView();
@@ -615,6 +696,7 @@ export default function DashboardPage() {
             case "kedisiplinan": return renderKedisiplinanView();
             case "ranking": return renderRankingView();
             case "galeri": return renderGaleriView();
+            case "syahriyah": return renderSyahriyahView();
             default: return (
                 <>
                     <SummaryModule 
@@ -622,6 +704,7 @@ export default function DashboardPage() {
                         limit={student?.batas_jajan_harian || 15000} 
                         balance={wallet?.balance || 0} 
                         nUnpaid={billings.filter(b => b.status !== 'PAID').length} 
+                        onSyahriyahClick={() => setCurrentView("syahriyah")}
                     />
                     {renderDashboard()}
                     <TahfidzModule data={tahfidz} />
@@ -713,7 +796,7 @@ function ViewHeader({ title, onBack }: any) {
     );
 }
 
-function SummaryModule({ todaySpend, limit, balance, nUnpaid }: any) {
+function SummaryModule({ todaySpend, limit, balance, nUnpaid, onSyahriyahClick }: any) {
     return (
         <div className="bg-white rounded-[2.5rem] shadow-xl border border-gray-100 p-6">
             <div className="grid grid-cols-2 gap-4">
@@ -727,7 +810,9 @@ function SummaryModule({ todaySpend, limit, balance, nUnpaid }: any) {
                     </div>
                     <p className="text-[9px] font-bold text-emerald-700 mt-2">Jajan Hari Ini: {Math.round(todaySpend/limit * 100)}%</p>
                 </div>
-                <div className={`rounded-3xl p-5 border ${nUnpaid > 0 ? 'bg-red-50 border-red-100' : 'bg-blue-50 border-blue-100'}`}>
+                <div 
+                    onClick={onSyahriyahClick}
+                    className={`rounded-3xl p-5 border cursor-pointer hover:shadow-md transition-shadow active:scale-95 ${nUnpaid > 0 ? 'bg-red-50 border-red-100' : 'bg-blue-50 border-blue-100'}`}>
                     <p className={`text-[10px] font-black uppercase tracking-widest mb-1.5 opacity-60 ${nUnpaid > 0 ? 'text-red-800' : 'text-blue-800'}`}>Syahriyah</p>
                     <p className={`text-xl font-black tracking-tighter ${nUnpaid > 0 ? 'text-red-950' : 'text-blue-950'}`}>
                         {nUnpaid > 0 ? `${nUnpaid} Tunggakan` : 'Lunas ✅'}

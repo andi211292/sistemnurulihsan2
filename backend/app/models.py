@@ -233,6 +233,7 @@ class PaymentTransaction(Base):
     billing_id = Column(Integer, ForeignKey("billings.id"))
     amount_paid = Column(Float)
     payment_date = Column(DateTime, default=datetime.datetime.utcnow)
+    received_by_user_id = Column(Integer, ForeignKey("users.user_id"), nullable=True)
     notes = Column(String, nullable=True)
     sync_status = Column(Boolean, default=False)
 

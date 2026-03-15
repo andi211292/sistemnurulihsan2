@@ -5,7 +5,7 @@ from datetime import datetime
 
 from .. import schemas, crud, models
 from ..database import SessionLocal
-from ..dependencies import require_role
+from ..dependencies import require_role, get_current_user_payload
 
 router = APIRouter(
     prefix="/api/keuangan",
@@ -143,7 +143,8 @@ def create_bulk_billings(bulk_request: schemas.BillingBulkCreate, db: Session = 
 def pay_billing(
     payment: schemas.PaymentTransactionCreate, 
     db: Session = Depends(get_db),
-    user_role: models.RoleEnum = Depends(require_role([models.RoleEnum.KASIR_SYAHRIYAH_PUTRA, models.RoleEnum.KASIR_SYAHRIYAH_PUTRI, models.RoleEnum.SUPER_ADMIN]))
+    user_role: models.RoleEnum = Depends(require_role([models.RoleEnum.KASIR_SYAHRIYAH_PUTRA, models.RoleEnum.KASIR_SYAHRIYAH_PUTRI, models.RoleEnum.SUPER_ADMIN])),
+    token_payload: dict = Depends(get_current_user_payload)
 ):
     # Verify billing exists
     billing = db.query(models.Billing).filter(models.Billing.id == payment.billing_id).first()
@@ -162,8 +163,12 @@ def pay_billing(
         db=db, 
         billing_id=payment.billing_id, 
         amount_paid=payment.amount_paid, 
-        notes=payment.notes or ""
+        notes=payment.notes or "",
+        received_by_user_id=token_payload.get("user_id") or payment.received_by_user_id or 1
     )
+    
+    # Enrich response with receiver_name if possible
+    # We'll just return it and let the schema handle it. crud.py will need to return it.
         
     return new_payment
 
@@ -187,7 +192,8 @@ def bayar_syahriyah_langsung(
         models.RoleEnum.KASIR_SYAHRIYAH_PUTRA,
         models.RoleEnum.KASIR_SYAHRIYAH_PUTRI,
         models.RoleEnum.SUPER_ADMIN
-    ]))
+    ])),
+    token_payload: dict = Depends(get_current_user_payload)
 ):
     """
     Bayar Syahriyah langsung tanpa harus buat tagihan manual.
@@ -261,7 +267,8 @@ def bayar_syahriyah_langsung(
         billing_id=billing.id,
         amount_paid=float(nominal),
         payment_date=datetime.now(),
-        notes=catatan
+        notes=catatan,
+        received_by_user_id=token_payload.get("user_id") or 1
     )
     db.add(payment)
 
