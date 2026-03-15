@@ -317,11 +317,13 @@ class MedicalRecordCreate(MedicalRecordBase):
 class MedicalRecordUpdate(BaseModel):
     diagnosis: Optional[str] = None
     medicine_given: Optional[str] = None
+    is_recovered: Optional[bool] = None
 
 class MedicalRecordResponse(MedicalRecordBase):
     medical_id: int
     handled_by_user_id: int
     timestamp: datetime
+    is_recovered: bool
     sync_status: bool
 
     class Config:

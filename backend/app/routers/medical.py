@@ -36,6 +36,7 @@ def get_medical_records(skip: int = 0, limit: int = 100, db: Session = Depends(g
             medicine_given=r.medicine_given,
             handled_by_user_id=r.handled_by_user_id,
             timestamp=r.timestamp,
+            is_recovered=r.is_recovered,
             sync_status=r.sync_status,
             student_name=student.full_name if student else "Unknown",
             handler_name=handler.username if handler else "Unknown"
@@ -68,7 +69,10 @@ def update_medical_record(
         db_item.diagnosis = record_update.diagnosis
     if record_update.medicine_given is not None:
         db_item.medicine_given = record_update.medicine_given
+    if record_update.is_recovered is not None:
+        db_item.is_recovered = record_update.is_recovered
         
+    db_item.sync_status = False # Mark for sync since it's updated
     db.commit()
     db.refresh(db_item)
     return db_item

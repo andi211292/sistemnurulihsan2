@@ -204,6 +204,7 @@ class MedicalRecord(Base):
     medicine_given = Column(String)
     handled_by_user_id = Column(Integer, ForeignKey("users.user_id"))
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    is_recovered = Column(Boolean, default=False)
     sync_status = Column(Boolean, default=False)
 
 class BillingStatusEnum(str, enum.Enum):

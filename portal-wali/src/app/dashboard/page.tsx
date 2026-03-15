@@ -218,6 +218,7 @@ export default function DashboardPage() {
                 .from('medical_records')
                 .select('*')
                 .eq('student_id', studentId)
+                .eq('is_recovered', false)
                 .gte('timestamp', sevenDaysAgo.toISOString())
                 .order('timestamp', { ascending: false })
                 .limit(1)

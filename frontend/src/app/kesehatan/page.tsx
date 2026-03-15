@@ -11,6 +11,7 @@ interface MedicalRecordDetail {
     medicine_given: string | null;
     handled_by_user_id: number;
     timestamp: string;
+    is_recovered: boolean;
     sync_status: boolean;
     student_name: string;
     handler_name: string;
@@ -114,6 +115,23 @@ export default function KesehatanPage() {
         }
     };
 
+    const markAsRecovered = async (medical_id: number) => {
+        if (!confirm("Tandai santri ini sudah sembuh?")) return;
+        setIsSaving(true);
+        try {
+            const res = await apiFetch(`/api/medical/${medical_id}`, {
+                method: "PUT",
+                body: JSON.stringify({ is_recovered: true })
+            });
+            if (res.ok) {
+                alert("Santri berhasil ditandai sembuh!");
+                fetchData();
+            }
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     const startUpdate = (record: MedicalRecordDetail) => {
         setUpdatingId(record.medical_id);
         setUpdateForm({
@@ -181,9 +199,16 @@ export default function KesehatanPage() {
                                                     <h3 className="font-bold text-gray-900 text-lg">{r.student_name}</h3>
                                                     <p className="text-xs text-gray-500">{new Date(r.timestamp).toLocaleString("id-ID")}</p>
                                                 </div>
-                                                <span className={`px-2 py-1 rounded text-[10px] font-bold ${r.diagnosis ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                                                    {r.diagnosis ? 'Telah Diperiksa' : 'Menunggu / Pantauan'}
-                                                </span>
+                                                <div className="flex gap-2">
+                                                    {r.is_recovered && (
+                                                        <span className="px-2 py-1 rounded text-[10px] font-bold bg-blue-100 text-blue-700 border border-blue-200">
+                                                            Sembuh
+                                                        </span>
+                                                    )}
+                                                    <span className={`px-2 py-1 rounded text-[10px] font-bold ${r.diagnosis ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                                                        {r.diagnosis ? 'Telah Diperiksa' : 'Menunggu / Pantauan'}
+                                                    </span>
+                                                </div>
                                             </div>
                                             
                                             <div className="mt-3 space-y-2">
@@ -219,14 +244,25 @@ export default function KesehatanPage() {
                                                             <span className="text-emerald-700 font-medium">{r.medicine_given || "-"}</span>
                                                         </div>
                                                         
-                                                        {/* Edit Button */}
-                                                        <button 
-                                                            onClick={() => startUpdate(r)} 
-                                                            className="absolute top-2 right-2 p-1.5 bg-white border shadow-sm rounded-md text-sky-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                            title="Update Diagnosa / Obat"
-                                                        >
-                                                            <span className="material-icons text-sm block">edit_note</span>
-                                                        </button>
+                                                        {/* Action Buttons */}
+                                                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            {!r.is_recovered && (
+                                                                <button 
+                                                                    onClick={() => markAsRecovered(r.medical_id)} 
+                                                                    className="p-1.5 bg-white border shadow-sm rounded-md text-emerald-600 hover:bg-emerald-50"
+                                                                    title="Tandai Sembuh"
+                                                                >
+                                                                    <span className="material-icons text-sm block">healing</span>
+                                                                </button>
+                                                            )}
+                                                            <button 
+                                                                onClick={() => startUpdate(r)} 
+                                                                className="p-1.5 bg-white border shadow-sm rounded-md text-sky-600 hover:bg-sky-50"
+                                                                title="Update Diagnosa / Obat"
+                                                            >
+                                                                <span className="material-icons text-sm block">edit_note</span>
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 )}
                                             </div>

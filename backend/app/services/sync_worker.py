@@ -402,6 +402,7 @@ async def sync_data_to_cloud():
                                 "medicine_given": med.medicine_given,
                                 "handled_by_user_id": med.handled_by_user_id,
                                 "timestamp": med.timestamp,
+                                "is_recovered": med.is_recovered,
                                 "sync_status": True
                             }
                             stmt = pg_insert(models.MedicalRecord).values(med_dict)
