@@ -194,3 +194,198 @@ def get_student_fee_status(student_id: int, db: Session = Depends(get_db)):
         ))
 
     return result
+
+# ============================================================
+# LAPORAN ENDPOINTS
+# ============================================================
+
+@router.get("/laporan/bulanan")
+def laporan_bulanan(
+    periode: Optional[str] = None,
+    fee_id: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Rekap bulanan: untuk setiap iuran aktif, tampilkan siapa sudah dan belum bayar.
+    Parameter `periode` format: 2026-03 (BULANAN), 2026-S1 (SEMESTER), 2026 (TAHUNAN).
+    Jika tidak disediakan, pakai periode berjalan.
+    """
+    now = datetime.now()
+
+    active_fees = db.query(models.FeeDefinition).filter(models.FeeDefinition.is_active == True).all()
+    if fee_id:
+        active_fees = [f for f in active_fees if f.id == fee_id]
+
+    all_students = db.query(models.Student).filter(models.Student.is_active == True).all()
+
+    result = []
+    for fee in active_fees:
+        if not periode:
+            p_label = _get_current_periode_label(fee.tipe_periode.value)
+        else:
+            p_label = periode
+
+        # Ambil semua pembayaran untuk iuran + periode ini
+        payments = db.query(models.StudentPayment).filter(
+            models.StudentPayment.fee_definition_id == fee.id,
+            models.StudentPayment.periode_label == p_label
+        ).all()
+
+        paid_ids = {p.student_id: p for p in payments}
+
+        sudah_bayar = []
+        belum_bayar = []
+
+        for st in all_students:
+            if st.student_id in paid_ids:
+                p = paid_ids[st.student_id]
+                sudah_bayar.append({
+                    "student_id": st.student_id,
+                    "nis": st.nis,
+                    "full_name": st.full_name,
+                    "student_class": st.student_class,
+                    "dormitory": st.dormitory,
+                    "gender": getattr(st, "gender", "-"),
+                    "nominal_dibayar": p.nominal_dibayar,
+                    "status": p.status.value if hasattr(p.status, "value") else str(p.status),
+                    "tanggal_bayar": str(p.tanggal_bayar) if p.tanggal_bayar else None,
+                })
+            else:
+                belum_bayar.append({
+                    "student_id": st.student_id,
+                    "nis": st.nis,
+                    "full_name": st.full_name,
+                    "student_class": st.student_class,
+                    "dormitory": st.dormitory,
+                    "gender": getattr(st, "gender", "-"),
+                })
+
+        result.append({
+            "fee_id": fee.id,
+            "nama_iuran": fee.nama_iuran,
+            "tipe_periode": fee.tipe_periode.value if hasattr(fee.tipe_periode, "value") else str(fee.tipe_periode),
+            "nominal": fee.nominal,
+            "kategori_dana": fee.kategori_dana,
+            "periode_label": p_label,
+            "total_santri": len(all_students),
+            "sudah_bayar_count": len(sudah_bayar),
+            "belum_bayar_count": len(belum_bayar),
+            "total_terkumpul": sum(p["nominal_dibayar"] for p in sudah_bayar),
+            "sudah_bayar": sudah_bayar,
+            "belum_bayar": belum_bayar,
+        })
+
+    return result
+
+
+@router.get("/laporan/tunggakan")
+def laporan_tunggakan(
+    gender: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Daftar semua santri yang punya tunggakan iuran aktif pada periode berjalan.
+    """
+    active_fees = db.query(models.FeeDefinition).filter(models.FeeDefinition.is_active == True).all()
+    student_query = db.query(models.Student).filter(models.Student.is_active == True)
+    if gender:
+        student_query = student_query.filter(models.Student.gender == gender.upper())
+    all_students = student_query.all()
+
+    result = []
+    for st in all_students:
+        tunggakan = []
+        total_tunggakan = 0.0
+        for fee in active_fees:
+            p_label = _get_current_periode_label(fee.tipe_periode.value if hasattr(fee.tipe_periode, "value") else str(fee.tipe_periode))
+            payment = db.query(models.StudentPayment).filter(
+                models.StudentPayment.student_id == st.student_id,
+                models.StudentPayment.fee_definition_id == fee.id,
+                models.StudentPayment.periode_label == p_label
+            ).first()
+
+            if not payment:
+                sisa = fee.nominal
+                tunggakan.append({
+                    "nama_iuran": fee.nama_iuran,
+                    "tipe_periode": fee.tipe_periode.value if hasattr(fee.tipe_periode, "value") else str(fee.tipe_periode),
+                    "nominal": fee.nominal,
+                    "sisa": sisa,
+                    "status": "BELUM_BAYAR",
+                    "periode_label": p_label,
+                })
+                total_tunggakan += sisa
+            elif payment.nominal_dibayar < fee.nominal:
+                sisa = fee.nominal - payment.nominal_dibayar
+                tunggakan.append({
+                    "nama_iuran": fee.nama_iuran,
+                    "tipe_periode": fee.tipe_periode.value if hasattr(fee.tipe_periode, "value") else str(fee.tipe_periode),
+                    "nominal": fee.nominal,
+                    "sisa": sisa,
+                    "status": "DICICIL",
+                    "periode_label": p_label,
+                })
+                total_tunggakan += sisa
+
+        if tunggakan:
+            result.append({
+                "student_id": st.student_id,
+                "nis": st.nis,
+                "full_name": st.full_name,
+                "student_class": st.student_class,
+                "dormitory": st.dormitory,
+                "gender": getattr(st, "gender", "-"),
+                "tunggakan": tunggakan,
+                "total_tunggakan": total_tunggakan,
+            })
+
+    # Sort by total tunggakan terbesar
+    result.sort(key=lambda x: x["total_tunggakan"], reverse=True)
+    return result
+
+
+@router.get("/laporan/kategori")
+def laporan_kategori(
+    bulan: Optional[int] = None,
+    tahun: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    """Total penerimaan iuran dikelompokkan per kategori dana."""
+    now = datetime.now()
+    bulan = bulan or now.month
+    tahun = tahun or now.year
+
+    # Ambil semua pembayaran dalam bulan/tahun yang dipilih
+    from sqlalchemy import func, extract
+    payments = db.query(models.StudentPayment).filter(
+        extract("year", models.StudentPayment.tanggal_bayar) == tahun,
+        extract("month", models.StudentPayment.tanggal_bayar) == bulan,
+    ).all()
+
+    kategori_map: dict = {}
+    for p in payments:
+        fee = db.query(models.FeeDefinition).filter(models.FeeDefinition.id == p.fee_definition_id).first()
+        if not fee:
+            continue
+        kat = fee.kategori_dana or "Lainnya"
+        if kat not in kategori_map:
+            kategori_map[kat] = {"kategori": kat, "total": 0.0, "transaksi": 0, "rincian": {}}
+        kategori_map[kat]["total"] += p.nominal_dibayar
+        kategori_map[kat]["transaksi"] += 1
+        nama = fee.nama_iuran
+        if nama not in kategori_map[kat]["rincian"]:
+            kategori_map[kat]["rincian"][nama] = 0.0
+        kategori_map[kat]["rincian"][nama] += p.nominal_dibayar
+
+    result = []
+    for k, v in kategori_map.items():
+        result.append({
+            "kategori": v["kategori"],
+            "total": v["total"],
+            "transaksi": v["transaksi"],
+            "rincian": [{"nama_iuran": n, "total": t} for n, t in v["rincian"].items()],
+        })
+    result.sort(key=lambda x: x["total"], reverse=True)
+    grand_total = sum(r["total"] for r in result)
+    return {"bulan": bulan, "tahun": tahun, "grand_total": grand_total, "per_kategori": result}
+
