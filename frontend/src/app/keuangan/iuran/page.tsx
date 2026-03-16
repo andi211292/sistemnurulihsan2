@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { apiFetch } from "@/utils/api";
 
 interface FeeDefinition {
     id: number;
@@ -17,6 +18,7 @@ interface Student {
     nis: string;
     full_name: string;
     student_class: string;
+    dormitory: string;
 }
 
 const PERIODE_LABEL: Record<string, string> = {
@@ -34,9 +36,12 @@ export default function ManajemenIuranPage() {
     const router = useRouter();
     const [feeDefs, setFeeDefs] = useState<FeeDefinition[]>([]);
     const [students, setStudents] = useState<Student[]>([]);
+    const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
+    const [studentSearch, setStudentSearch] = useState("");
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [activeTab, setActiveTab] = useState<"daftar" | "bayar">("daftar");
+    const [toastMsg, setToastMsg] = useState<string | null>(null);
 
     // Modal state
     const [showFeeModal, setShowFeeModal] = useState(false);
@@ -45,34 +50,70 @@ export default function ManajemenIuranPage() {
 
     // Payment form state
     const [payForm, setPayForm] = useState({
-        student_id: "", fee_definition_id: "", nominal_dibayar: "",
+        student_id: "",
+        student_name: "",
+        fee_definition_id: "",
+        nominal_dibayar: "",
         tanggal_bayar: new Date().toISOString().split("T")[0],
-        status: "LUNAS", catatan: "", periode_label: ""
+        status: "LUNAS",
+        catatan: "",
+        periode_label: ""
     });
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
-    const getToken = () => localStorage.getItem("access_token") || "";
+    const showToast = (msg: string) => {
+        setToastMsg(msg);
+        setTimeout(() => setToastMsg(null), 3000);
+    };
 
     const fetchData = useCallback(async () => {
         setIsLoading(true);
         try {
+            // Use apiFetch so requests go through Next.js proxy (same as other pages)
             const [feeRes, stuRes] = await Promise.all([
-                fetch(`${apiUrl}/api/iuran/definitions`, { headers: { Authorization: `Bearer ${getToken()}` } }),
-                fetch(`${apiUrl}/api/students`, { headers: { Authorization: `Bearer ${getToken()}` } }),
+                apiFetch("/api/iuran/definitions"),
+                apiFetch("/api/students"),
             ]);
-            if (feeRes.ok) setFeeDefs(await feeRes.json());
-            if (stuRes.ok) setStudents(await stuRes.json());
+            if (feeRes.ok) {
+                const feeData = await feeRes.json();
+                setFeeDefs(feeData);
+            } else {
+                console.error("[Iuran] Failed to load fee definitions:", feeRes.status);
+            }
+            if (stuRes.ok) {
+                const stuData = await stuRes.json();
+                setStudents(stuData);
+                setFilteredStudents(stuData.slice(0, 50)); // Show first 50 by default
+            } else {
+                console.error("[Iuran] Failed to load students:", stuRes.status);
+            }
+        } catch (err) {
+            console.error("[Iuran] Fetch error:", err);
         } finally {
             setIsLoading(false);
         }
-    }, [apiUrl]);
+    }, []);
 
     useEffect(() => {
         const token = localStorage.getItem("access_token");
         if (!token) { router.push("/login"); return; }
         fetchData();
     }, [fetchData, router]);
+
+    // Live search filter
+    useEffect(() => {
+        if (!studentSearch.trim()) {
+            setFilteredStudents(students.slice(0, 50));
+        } else {
+            const q = studentSearch.toLowerCase();
+            setFilteredStudents(
+                students.filter(s =>
+                    s.full_name.toLowerCase().includes(q) ||
+                    s.nis.toLowerCase().includes(q) ||
+                    s.student_class.toLowerCase().includes(q)
+                ).slice(0, 50)
+            );
+        }
+    }, [studentSearch, students]);
 
     const openAddFeeModal = () => {
         setEditingFee(null);
@@ -90,32 +131,40 @@ export default function ManajemenIuranPage() {
         e.preventDefault();
         setIsSaving(true);
         try {
-            const url = editingFee
-                ? `${apiUrl}/api/iuran/definitions/${editingFee.id}`
-                : `${apiUrl}/api/iuran/definitions`;
+            const url = editingFee ? `/api/iuran/definitions/${editingFee.id}` : `/api/iuran/definitions`;
             const method = editingFee ? "PUT" : "POST";
-            const res = await fetch(url, {
-                method, headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+            const res = await apiFetch(url, {
+                method,
                 body: JSON.stringify({ ...feeForm, nominal: parseFloat(feeForm.nominal) })
             });
-            if (res.ok) { setShowFeeModal(false); fetchData(); }
-            else { const err = await res.json(); alert("Gagal: " + (err.detail || "Error")); }
+            if (res.ok) {
+                setShowFeeModal(false);
+                fetchData();
+                showToast(editingFee ? "Iuran berhasil diperbarui!" : "Iuran baru berhasil ditambahkan!");
+            } else {
+                const err = await res.json();
+                alert("Gagal: " + (err.detail || "Error"));
+            }
         } finally { setIsSaving(false); }
     };
 
     const handleToggleActive = async (fee: FeeDefinition) => {
-        await fetch(`${apiUrl}/api/iuran/definitions/${fee.id}`, {
-            method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+        await apiFetch(`/api/iuran/definitions/${fee.id}`, {
+            method: "PUT",
             body: JSON.stringify({ is_active: !fee.is_active })
         });
         fetchData();
+        showToast(`Iuran "${fee.nama_iuran}" ${fee.is_active ? "dinonaktifkan" : "diaktifkan"}`);
     };
 
     const handleSavePayment = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!payForm.student_id) { alert("Pilih santri terlebih dahulu"); return; }
+        if (!payForm.fee_definition_id) { alert("Pilih jenis iuran terlebih dahulu"); return; }
+        if (!payForm.nominal_dibayar || parseFloat(payForm.nominal_dibayar) <= 0) { alert("Masukkan nominal yang valid"); return; }
+
         setIsSaving(true);
         try {
-            // Auto-generate periode_label if empty
             const selectedFee = feeDefs.find(f => f.id === parseInt(payForm.fee_definition_id));
             let periodeLabel = payForm.periode_label;
             if (!periodeLabel && selectedFee) {
@@ -124,8 +173,8 @@ export default function ManajemenIuranPage() {
                 else if (selectedFee.tipe_periode === "SEMESTER") periodeLabel = `${now.getFullYear()}-S${now.getMonth() < 6 ? 1 : 2}`;
                 else periodeLabel = String(now.getFullYear());
             }
-            const res = await fetch(`${apiUrl}/api/iuran/payments`, {
-                method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${getToken()}` },
+            const res = await apiFetch(`/api/iuran/payments`, {
+                method: "POST",
                 body: JSON.stringify({
                     student_id: parseInt(payForm.student_id),
                     fee_definition_id: parseInt(payForm.fee_definition_id),
@@ -136,17 +185,26 @@ export default function ManajemenIuranPage() {
                     periode_label: periodeLabel
                 })
             });
-            if (res.ok) { 
-                alert("Pembayaran berhasil dicatat!");
-                setPayForm({ student_id: "", fee_definition_id: "", nominal_dibayar: "", tanggal_bayar: new Date().toISOString().split("T")[0], status: "LUNAS", catatan: "", periode_label: "" });
+            if (res.ok) {
+                showToast(`✅ Pembayaran ${payForm.student_name} berhasil dicatat!`);
+                setPayForm({ student_id: "", student_name: "", fee_definition_id: "", nominal_dibayar: "", tanggal_bayar: new Date().toISOString().split("T")[0], status: "LUNAS", catatan: "", periode_label: "" });
+                setStudentSearch("");
             } else {
-                const err = await res.json(); alert("Gagal: " + (err.detail || "Error"));
+                const err = await res.json();
+                alert("Gagal: " + (err.detail || "Error"));
             }
         } finally { setIsSaving(false); }
     };
 
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-6">
+            {/* Toast Notification */}
+            {toastMsg && (
+                <div className="fixed top-4 right-4 z-50 bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-xl text-sm font-medium animate-bounce">
+                    {toastMsg}
+                </div>
+            )}
+
             {/* Header */}
             <div className="flex justify-between items-center">
                 <div>
@@ -174,7 +232,15 @@ export default function ManajemenIuranPage() {
             {activeTab === "daftar" && (
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                     {isLoading ? (
-                        <div className="p-12 text-center text-gray-400">Memuat data...</div>
+                        <div className="p-12 text-center text-gray-400">
+                            <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                            Memuat data iuran...
+                        </div>
+                    ) : feeDefs.length === 0 ? (
+                        <div className="p-12 text-center text-gray-400">
+                            <span className="material-icons text-5xl text-gray-200 block mb-3">receipt_long</span>
+                            Belum ada data iuran. Klik &quot;Tambah Iuran Baru&quot; untuk mulai.
+                        </div>
                     ) : (
                         <table className="w-full text-left">
                             <thead className="bg-gray-50 border-b border-gray-200 text-sm text-gray-500">
@@ -226,17 +292,58 @@ export default function ManajemenIuranPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                         <h2 className="text-lg font-bold text-gray-800 mb-5">Form Pencatatan Pembayaran</h2>
-                        <form onSubmit={handleSavePayment} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Santri</label>
-                                <select required value={payForm.student_id} onChange={e => setPayForm({ ...payForm, student_id: e.target.value })}
-                                    className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none">
-                                    <option value="" disabled>-- Pilih Santri --</option>
-                                    {students.map(s => (
-                                        <option key={s.student_id} value={s.student_id}>{s.full_name} ({s.nis})</option>
-                                    ))}
-                                </select>
+                        {isLoading ? (
+                            <div className="text-center py-8 text-gray-400">
+                                <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                                Memuat data santri ({students.length > 0 ? `${students.length} santri` : "..."})
                             </div>
+                        ) : (
+                        <form onSubmit={handleSavePayment} className="space-y-4">
+                            {/* ---- STUDENT SEARCH (instead of broken <select>) ---- */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Santri <span className="text-gray-400 font-normal">({students.length} terdaftar)</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="🔍 Ketik nama, NIS, atau kelas santri..."
+                                    value={studentSearch}
+                                    onChange={e => {
+                                        setStudentSearch(e.target.value);
+                                        setPayForm(prev => ({ ...prev, student_id: "", student_name: "" }));
+                                    }}
+                                    className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
+                                />
+                                {payForm.student_id ? (
+                                    <div className="mt-2 flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 text-sm">
+                                        <span className="material-icons text-emerald-600 text-base">check_circle</span>
+                                        <span className="font-semibold text-emerald-800">{payForm.student_name}</span>
+                                        <button type="button" onClick={() => { setPayForm(prev => ({ ...prev, student_id: "", student_name: "" })); setStudentSearch(""); }}
+                                            className="ml-auto text-red-400 hover:text-red-600">
+                                            <span className="material-icons text-base">close</span>
+                                        </button>
+                                    </div>
+                                ) : (
+                                    studentSearch.length > 0 && (
+                                        <div className="mt-1 border border-gray-200 rounded-lg overflow-hidden max-h-48 overflow-y-auto">
+                                            {filteredStudents.length === 0 ? (
+                                                <div className="p-3 text-center text-gray-400 text-sm">Tidak ada santri ditemukan</div>
+                                            ) : filteredStudents.map(s => (
+                                                <button key={s.student_id} type="button"
+                                                    onClick={() => {
+                                                        setPayForm(prev => ({ ...prev, student_id: String(s.student_id), student_name: s.full_name }));
+                                                        setStudentSearch(s.full_name);
+                                                    }}
+                                                    className="w-full text-left px-4 py-2.5 hover:bg-emerald-50 border-b border-gray-50 text-sm">
+                                                    <span className="font-medium text-gray-800">{s.full_name}</span>
+                                                    <span className="text-gray-400 ml-2 text-xs">{s.nis} · {s.student_class} · {s.dormitory}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )
+                                )}
+                            </div>
+
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Jenis Iuran</label>
                                 <select required value={payForm.fee_definition_id} onChange={e => setPayForm({ ...payForm, fee_definition_id: e.target.value })}
@@ -250,7 +357,7 @@ export default function ManajemenIuranPage() {
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Nominal Dibayar (Rp)</label>
-                                    <input type="number" required min="0" value={payForm.nominal_dibayar} onChange={e => setPayForm({ ...payForm, nominal_dibayar: e.target.value })}
+                                    <input type="number" required min="1" value={payForm.nominal_dibayar} onChange={e => setPayForm({ ...payForm, nominal_dibayar: e.target.value })}
                                         className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" />
                                 </div>
                                 <div>
@@ -279,11 +386,12 @@ export default function ManajemenIuranPage() {
                                 <textarea rows={2} value={payForm.catatan} onChange={e => setPayForm({ ...payForm, catatan: e.target.value })}
                                     className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" />
                             </div>
-                            <button type="submit" disabled={isSaving}
-                                className="w-full py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 transition disabled:opacity-50">
+                            <button type="submit" disabled={isSaving || !payForm.student_id}
+                                className="w-full py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 transition disabled:opacity-40">
                                 {isSaving ? "Menyimpan..." : "Simpan Pembayaran"}
                             </button>
                         </form>
+                        )}
                     </div>
 
                     {/* Info Panel */}
@@ -306,6 +414,21 @@ export default function ManajemenIuranPage() {
                                 <p>Contoh: <code className="bg-yellow-100 px-1 rounded">2026</code></p>
                             </div>
                             <p className="text-gray-400 italic text-xs">* Jika kosong, sistem akan otomatis mengisi berdasarkan tanggal hari ini.</p>
+                        </div>
+
+                        {/* Stats */}
+                        <div className="mt-6 pt-4 border-t border-gray-100">
+                            <h4 className="font-semibold text-gray-600 text-sm mb-3">📊 Rangkuman</h4>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="bg-gray-50 rounded-xl p-3 text-center">
+                                    <p className="text-2xl font-bold text-gray-800">{students.length}</p>
+                                    <p className="text-xs text-gray-500 mt-1">Total Santri</p>
+                                </div>
+                                <div className="bg-emerald-50 rounded-xl p-3 text-center">
+                                    <p className="text-2xl font-bold text-emerald-700">{feeDefs.filter(f => f.is_active).length}</p>
+                                    <p className="text-xs text-emerald-600 mt-1">Jenis Iuran Aktif</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
