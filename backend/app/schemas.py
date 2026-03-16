@@ -435,8 +435,8 @@ class FeeDefinitionUpdate(BaseModel):
 
 class FeeDefinitionResponse(FeeDefinitionBase):
     id: int
-    created_at: datetime
-    sync_status: bool
+    created_at: Optional[datetime] = None
+    sync_status: Optional[bool] = False
 
     class Config:
         from_attributes = True
@@ -456,8 +456,8 @@ class StudentPaymentCreate(StudentPaymentBase):
 class StudentPaymentResponse(StudentPaymentBase):
     id: int
     received_by_user_id: Optional[int] = None
-    created_at: datetime
-    sync_status: bool
+    created_at: Optional[datetime] = None
+    sync_status: Optional[bool] = False
     fee_definition: Optional[FeeDefinitionResponse] = None
     receiver_name: Optional[str] = None
 
