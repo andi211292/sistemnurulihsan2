@@ -19,17 +19,21 @@ interface Student {
     full_name: string;
     student_class: string;
     dormitory: string;
+    gender: string; // PUTRA | PUTRI
 }
 
 const PERIODE_LABEL: Record<string, string> = {
     BULANAN: "Bulanan", SEMESTER: "Semester", TAHUNAN: "Tahunan", INSIDENTAL: "Insidental"
 };
-
 const PERIODE_COLOR: Record<string, string> = {
     BULANAN: "bg-blue-100 text-blue-700",
     SEMESTER: "bg-purple-100 text-purple-700",
     TAHUNAN: "bg-yellow-100 text-yellow-700",
     INSIDENTAL: "bg-gray-100 text-gray-600",
+};
+const GENDER_FROM_ROLE: Record<string, string> = {
+    KASIR_SYAHRIYAH_PUTRA: "PUTRA",
+    KASIR_SYAHRIYAH_PUTRI: "PUTRI",
 };
 
 export default function ManajemenIuranPage() {
@@ -41,53 +45,41 @@ export default function ManajemenIuranPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [activeTab, setActiveTab] = useState<"daftar" | "bayar">("daftar");
-    const [toastMsg, setToastMsg] = useState<string | null>(null);
+    const [toastMsg, setToastMsg] = useState<{ text: string; ok: boolean } | null>(null);
+    const [userRole, setUserRole] = useState<string>("");
+    const [genderFilter, setGenderFilter] = useState<string>(""); // "" = semua
 
     // Modal state
     const [showFeeModal, setShowFeeModal] = useState(false);
     const [editingFee, setEditingFee] = useState<FeeDefinition | null>(null);
     const [feeForm, setFeeForm] = useState({ nama_iuran: "", tipe_periode: "BULANAN", nominal: "", kategori_dana: "" });
 
-    // Payment form state
-    const [payForm, setPayForm] = useState({
-        student_id: "",
-        student_name: "",
-        fee_definition_id: "",
-        nominal_dibayar: "",
-        tanggal_bayar: new Date().toISOString().split("T")[0],
-        status: "LUNAS",
-        catatan: "",
-        periode_label: ""
-    });
+    // Multi-payment form
+    const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+    const [checkedFees, setCheckedFees] = useState<Set<number>>(new Set());
+    const [payDate, setPayDate] = useState(new Date().toISOString().split("T")[0]);
+    const [payStatus, setPayStatus] = useState("LUNAS");
+    const [payNote, setPayNote] = useState("");
 
-    const showToast = (msg: string) => {
-        setToastMsg(msg);
-        setTimeout(() => setToastMsg(null), 3000);
+    const showToast = (text: string, ok = true) => {
+        setToastMsg({ text, ok });
+        setTimeout(() => setToastMsg(null), 3500);
     };
 
     const fetchData = useCallback(async () => {
         setIsLoading(true);
         try {
-            // Use apiFetch so requests go through Next.js proxy (same as other pages)
             const [feeRes, stuRes] = await Promise.all([
                 apiFetch("/api/iuran/definitions"),
                 apiFetch("/api/students"),
             ]);
-            if (feeRes.ok) {
-                const feeData = await feeRes.json();
-                setFeeDefs(feeData);
-            } else {
-                console.error("[Iuran] Failed to load fee definitions:", feeRes.status);
-            }
+            if (feeRes.ok) setFeeDefs(await feeRes.json());
             if (stuRes.ok) {
-                const stuData = await stuRes.json();
-                setStudents(stuData);
-                setFilteredStudents(stuData.slice(0, 50)); // Show first 50 by default
-            } else {
-                console.error("[Iuran] Failed to load students:", stuRes.status);
+                const all: Student[] = await stuRes.json();
+                setStudents(all);
             }
-        } catch (err) {
-            console.error("[Iuran] Fetch error:", err);
+        } catch (e) {
+            console.error("fetchData error:", e);
         } finally {
             setIsLoading(false);
         }
@@ -96,124 +88,139 @@ export default function ManajemenIuranPage() {
     useEffect(() => {
         const token = localStorage.getItem("access_token");
         if (!token) { router.push("/login"); return; }
+        const role = localStorage.getItem("user_role") || "";
+        setUserRole(role);
+        const gf = GENDER_FROM_ROLE[role] || "";
+        setGenderFilter(gf);
         fetchData();
     }, [fetchData, router]);
 
-    // Live search filter
+    // Filter students by search + gender
     useEffect(() => {
+        let pool = students;
+        if (genderFilter) pool = students.filter(s => s.gender?.toUpperCase() === genderFilter);
         if (!studentSearch.trim()) {
-            setFilteredStudents(students.slice(0, 50));
+            setFilteredStudents(pool.slice(0, 60));
         } else {
             const q = studentSearch.toLowerCase();
             setFilteredStudents(
-                students.filter(s =>
-                    s.full_name.toLowerCase().includes(q) ||
-                    s.nis.toLowerCase().includes(q) ||
-                    s.student_class.toLowerCase().includes(q)
-                ).slice(0, 50)
+                pool.filter(s =>
+                    s.full_name?.toLowerCase().includes(q) ||
+                    s.nis?.toLowerCase().includes(q) ||
+                    s.student_class?.toLowerCase().includes(q)
+                ).slice(0, 60)
             );
         }
-    }, [studentSearch, students]);
+    }, [studentSearch, students, genderFilter]);
 
-    const openAddFeeModal = () => {
-        setEditingFee(null);
-        setFeeForm({ nama_iuran: "", tipe_periode: "BULANAN", nominal: "", kategori_dana: "" });
-        setShowFeeModal(true);
+    const toggleFee = (id: number) => {
+        setCheckedFees(prev => {
+            const next = new Set(prev);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+        });
     };
 
-    const openEditFeeModal = (fee: FeeDefinition) => {
-        setEditingFee(fee);
-        setFeeForm({ nama_iuran: fee.nama_iuran, tipe_periode: fee.tipe_periode, nominal: String(fee.nominal), kategori_dana: fee.kategori_dana || "" });
-        setShowFeeModal(true);
+    const totalChecked = Array.from(checkedFees).reduce((sum, id) => {
+        const fee = feeDefs.find(f => f.id === id);
+        return sum + (fee?.nominal || 0);
+    }, 0);
+
+    const handleSavePayment = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedStudent) { showToast("Pilih santri dulu", false); return; }
+        if (checkedFees.size === 0) { showToast("Centang minimal 1 iuran", false); return; }
+
+        setIsSaving(true);
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const feeId of Array.from(checkedFees)) {
+            const fee = feeDefs.find(f => f.id === feeId);
+            if (!fee) continue;
+
+            const now = new Date();
+            let periodeLabel = "";
+            if (fee.tipe_periode === "BULANAN") periodeLabel = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+            else if (fee.tipe_periode === "SEMESTER") periodeLabel = `${now.getFullYear()}-S${now.getMonth() < 6 ? 1 : 2}`;
+            else periodeLabel = String(now.getFullYear());
+
+            try {
+                const res = await apiFetch("/api/iuran/payments", {
+                    method: "POST",
+                    body: JSON.stringify({
+                        student_id: selectedStudent.student_id,
+                        fee_definition_id: feeId,
+                        nominal_dibayar: fee.nominal,
+                        tanggal_bayar: payDate,
+                        status: payStatus,
+                        catatan: payNote,
+                        periode_label: periodeLabel,
+                    })
+                });
+                if (res.ok) successCount++;
+                else failCount++;
+            } catch { failCount++; }
+        }
+
+        setIsSaving(false);
+        if (successCount > 0) {
+            showToast(`✅ ${successCount} iuran berhasil dicatat untuk ${selectedStudent.full_name}!`);
+            setCheckedFees(new Set());
+            setPayNote("");
+            setSelectedStudent(null);
+            setStudentSearch("");
+        }
+        if (failCount > 0) showToast(`⚠️ ${failCount} iuran gagal disimpan`, false);
     };
+
+    // ---- Fee Modal Handlers ----
+    const openAddFeeModal = () => { setEditingFee(null); setFeeForm({ nama_iuran: "", tipe_periode: "BULANAN", nominal: "", kategori_dana: "" }); setShowFeeModal(true); };
+    const openEditFeeModal = (fee: FeeDefinition) => { setEditingFee(fee); setFeeForm({ nama_iuran: fee.nama_iuran, tipe_periode: fee.tipe_periode, nominal: String(fee.nominal), kategori_dana: fee.kategori_dana || "" }); setShowFeeModal(true); };
 
     const handleSaveFee = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSaving(true);
         try {
             const url = editingFee ? `/api/iuran/definitions/${editingFee.id}` : `/api/iuran/definitions`;
-            const method = editingFee ? "PUT" : "POST";
-            const res = await apiFetch(url, {
-                method,
-                body: JSON.stringify({ ...feeForm, nominal: parseFloat(feeForm.nominal) })
-            });
-            if (res.ok) {
-                setShowFeeModal(false);
-                fetchData();
-                showToast(editingFee ? "Iuran berhasil diperbarui!" : "Iuran baru berhasil ditambahkan!");
-            } else {
-                const err = await res.json();
-                alert("Gagal: " + (err.detail || "Error"));
-            }
+            const res = await apiFetch(url, { method: editingFee ? "PUT" : "POST", body: JSON.stringify({ ...feeForm, nominal: parseFloat(feeForm.nominal) }) });
+            if (res.ok) { setShowFeeModal(false); fetchData(); showToast(editingFee ? "Iuran diperbarui!" : "Iuran baru ditambahkan!"); }
+            else { const err = await res.json(); alert("Gagal: " + (err.detail || "Error")); }
         } finally { setIsSaving(false); }
     };
 
     const handleToggleActive = async (fee: FeeDefinition) => {
-        await apiFetch(`/api/iuran/definitions/${fee.id}`, {
-            method: "PUT",
-            body: JSON.stringify({ is_active: !fee.is_active })
-        });
+        await apiFetch(`/api/iuran/definitions/${fee.id}`, { method: "PUT", body: JSON.stringify({ is_active: !fee.is_active }) });
         fetchData();
         showToast(`Iuran "${fee.nama_iuran}" ${fee.is_active ? "dinonaktifkan" : "diaktifkan"}`);
     };
 
-    const handleSavePayment = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!payForm.student_id) { alert("Pilih santri terlebih dahulu"); return; }
-        if (!payForm.fee_definition_id) { alert("Pilih jenis iuran terlebih dahulu"); return; }
-        if (!payForm.nominal_dibayar || parseFloat(payForm.nominal_dibayar) <= 0) { alert("Masukkan nominal yang valid"); return; }
-
-        setIsSaving(true);
-        try {
-            const selectedFee = feeDefs.find(f => f.id === parseInt(payForm.fee_definition_id));
-            let periodeLabel = payForm.periode_label;
-            if (!periodeLabel && selectedFee) {
-                const now = new Date();
-                if (selectedFee.tipe_periode === "BULANAN") periodeLabel = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-                else if (selectedFee.tipe_periode === "SEMESTER") periodeLabel = `${now.getFullYear()}-S${now.getMonth() < 6 ? 1 : 2}`;
-                else periodeLabel = String(now.getFullYear());
-            }
-            const res = await apiFetch(`/api/iuran/payments`, {
-                method: "POST",
-                body: JSON.stringify({
-                    student_id: parseInt(payForm.student_id),
-                    fee_definition_id: parseInt(payForm.fee_definition_id),
-                    nominal_dibayar: parseFloat(payForm.nominal_dibayar),
-                    tanggal_bayar: payForm.tanggal_bayar,
-                    status: payForm.status,
-                    catatan: payForm.catatan,
-                    periode_label: periodeLabel
-                })
-            });
-            if (res.ok) {
-                showToast(`✅ Pembayaran ${payForm.student_name} berhasil dicatat!`);
-                setPayForm({ student_id: "", student_name: "", fee_definition_id: "", nominal_dibayar: "", tanggal_bayar: new Date().toISOString().split("T")[0], status: "LUNAS", catatan: "", periode_label: "" });
-                setStudentSearch("");
-            } else {
-                const err = await res.json();
-                alert("Gagal: " + (err.detail || "Error"));
-            }
-        } finally { setIsSaving(false); }
-    };
+    const activeFees = feeDefs.filter(f => f.is_active);
+    const genderBadge = genderFilter === "PUTRA" ? "🙋‍♂️ Putra" : genderFilter === "PUTRI" ? "🙋‍♀️ Putri" : "👥 Semua";
 
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-6">
-            {/* Toast Notification */}
+            {/* Toast */}
             {toastMsg && (
-                <div className="fixed top-4 right-4 z-50 bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-xl text-sm font-medium animate-bounce">
-                    {toastMsg}
+                <div className={`fixed top-4 right-4 z-50 px-5 py-3 rounded-xl shadow-xl text-sm font-medium transition-all ${toastMsg.ok ? "bg-emerald-600 text-white" : "bg-red-600 text-white"}`}>
+                    {toastMsg.text}
                 </div>
             )}
 
             {/* Header */}
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center flex-wrap gap-3">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-800">📋 Manajemen Iuran Santri</h1>
-                    <p className="text-gray-500 mt-1">Kelola definisi iuran wajib dan catat pembayaran santri</p>
+                    <p className="text-gray-500 mt-1 flex items-center gap-2">
+                        Kelola iuran wajib & catat pembayaran
+                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${genderFilter === "PUTRA" ? "bg-blue-100 text-blue-700" : genderFilter === "PUTRI" ? "bg-pink-100 text-pink-700" : "bg-gray-100 text-gray-600"}`}>
+                            {genderBadge}
+                        </span>
+                    </p>
                 </div>
                 {activeTab === "daftar" && (
                     <button onClick={openAddFeeModal} className="bg-emerald-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700 transition flex items-center gap-2">
-                        <span className="material-icons text-sm">add</span> Tambah Iuran Baru
+                        <span className="material-icons text-sm">add</span> Tambah Iuran
                     </button>
                 )}
             </div>
@@ -231,52 +238,34 @@ export default function ManajemenIuranPage() {
             {/* ---- TAB: DAFTAR IURAN ---- */}
             {activeTab === "daftar" && (
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                    {isLoading ? (
-                        <div className="p-12 text-center text-gray-400">
-                            <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-                            Memuat data iuran...
-                        </div>
-                    ) : feeDefs.length === 0 ? (
-                        <div className="p-12 text-center text-gray-400">
-                            <span className="material-icons text-5xl text-gray-200 block mb-3">receipt_long</span>
-                            Belum ada data iuran. Klik &quot;Tambah Iuran Baru&quot; untuk mulai.
-                        </div>
-                    ) : (
+                    {isLoading ? <div className="p-12 text-center text-gray-400">Memuat data...</div>
+                        : feeDefs.length === 0 ? <div className="p-12 text-center text-gray-400">Belum ada iuran. Klik Tambah Iuran untuk mulai.</div>
+                        : (
                         <table className="w-full text-left">
                             <thead className="bg-gray-50 border-b border-gray-200 text-sm text-gray-500">
                                 <tr>
-                                    <th className="p-4 font-medium">Nama Iuran</th>
-                                    <th className="p-4 font-medium">Periode</th>
-                                    <th className="p-4 font-medium">Kategori Dana</th>
-                                    <th className="p-4 font-medium text-right">Nominal (Rp)</th>
-                                    <th className="p-4 font-medium text-center">Status</th>
-                                    <th className="p-4 font-medium text-center">Aksi</th>
+                                    <th className="p-4">Nama Iuran</th>
+                                    <th className="p-4">Periode</th>
+                                    <th className="p-4">Kategori Dana</th>
+                                    <th className="p-4 text-right">Nominal (Rp)</th>
+                                    <th className="p-4 text-center">Status</th>
+                                    <th className="p-4 text-center">Aksi</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {feeDefs.map(fee => (
                                     <tr key={fee.id} className="border-b border-gray-50 hover:bg-gray-50 transition">
                                         <td className="p-4 font-medium text-gray-800">{fee.nama_iuran}</td>
-                                        <td className="p-4">
-                                            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${PERIODE_COLOR[fee.tipe_periode] || "bg-gray-100 text-gray-600"}`}>
-                                                {PERIODE_LABEL[fee.tipe_periode] || fee.tipe_periode}
-                                            </span>
-                                        </td>
+                                        <td className="p-4"><span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${PERIODE_COLOR[fee.tipe_periode]}`}>{PERIODE_LABEL[fee.tipe_periode]}</span></td>
                                         <td className="p-4 text-gray-600">{fee.kategori_dana || "-"}</td>
-                                        <td className="p-4 text-right font-bold text-gray-800">
-                                            {fee.nominal.toLocaleString("id-ID")}
-                                        </td>
+                                        <td className="p-4 text-right font-bold text-gray-800">{fee.nominal.toLocaleString("id-ID")}</td>
                                         <td className="p-4 text-center">
-                                            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${fee.is_active ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-400"}`}>
-                                                {fee.is_active ? "Aktif" : "Nonaktif"}
-                                            </span>
+                                            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${fee.is_active ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-400"}`}>{fee.is_active ? "Aktif" : "Nonaktif"}</span>
                                         </td>
                                         <td className="p-4 text-center">
                                             <div className="flex gap-2 justify-center">
-                                                <button onClick={() => openEditFeeModal(fee)} className="text-xs bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition">Edit Nominal</button>
-                                                <button onClick={() => handleToggleActive(fee)} className={`text-xs px-3 py-1.5 rounded-lg transition ${fee.is_active ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-green-50 text-green-600 hover:bg-green-100"}`}>
-                                                    {fee.is_active ? "Nonaktifkan" : "Aktifkan"}
-                                                </button>
+                                                <button onClick={() => openEditFeeModal(fee)} className="text-xs bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition">Edit</button>
+                                                <button onClick={() => handleToggleActive(fee)} className={`text-xs px-3 py-1.5 rounded-lg transition ${fee.is_active ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-green-50 text-green-600 hover:bg-green-100"}`}>{fee.is_active ? "Nonaktifkan" : "Aktifkan"}</button>
                                             </div>
                                         </td>
                                     </tr>
@@ -289,147 +278,171 @@ export default function ManajemenIuranPage() {
 
             {/* ---- TAB: CATAT PEMBAYARAN ---- */}
             {activeTab === "bayar" && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                        <h2 className="text-lg font-bold text-gray-800 mb-5">Form Pencatatan Pembayaran</h2>
-                        {isLoading ? (
-                            <div className="text-center py-8 text-gray-400">
-                                <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-                                Memuat data santri ({students.length > 0 ? `${students.length} santri` : "..."})
-                            </div>
-                        ) : (
-                        <form onSubmit={handleSavePayment} className="space-y-4">
-                            {/* ---- STUDENT SEARCH (instead of broken <select>) ---- */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Santri <span className="text-gray-400 font-normal">({students.length} terdaftar)</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    placeholder="🔍 Ketik nama, NIS, atau kelas santri..."
-                                    value={studentSearch}
-                                    onChange={e => {
-                                        setStudentSearch(e.target.value);
-                                        setPayForm(prev => ({ ...prev, student_id: "", student_name: "" }));
-                                    }}
-                                    className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm"
-                                />
-                                {payForm.student_id ? (
-                                    <div className="mt-2 flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 text-sm">
-                                        <span className="material-icons text-emerald-600 text-base">check_circle</span>
-                                        <span className="font-semibold text-emerald-800">{payForm.student_name}</span>
-                                        <button type="button" onClick={() => { setPayForm(prev => ({ ...prev, student_id: "", student_name: "" })); setStudentSearch(""); }}
-                                            className="ml-auto text-red-400 hover:text-red-600">
-                                            <span className="material-icons text-base">close</span>
-                                        </button>
-                                    </div>
-                                ) : (
-                                    studentSearch.length > 0 && (
-                                        <div className="mt-1 border border-gray-200 rounded-lg overflow-hidden max-h-48 overflow-y-auto">
-                                            {filteredStudents.length === 0 ? (
-                                                <div className="p-3 text-center text-gray-400 text-sm">Tidak ada santri ditemukan</div>
-                                            ) : filteredStudents.map(s => (
-                                                <button key={s.student_id} type="button"
-                                                    onClick={() => {
-                                                        setPayForm(prev => ({ ...prev, student_id: String(s.student_id), student_name: s.full_name }));
-                                                        setStudentSearch(s.full_name);
-                                                    }}
-                                                    className="w-full text-left px-4 py-2.5 hover:bg-emerald-50 border-b border-gray-50 text-sm">
-                                                    <span className="font-medium text-gray-800">{s.full_name}</span>
-                                                    <span className="text-gray-400 ml-2 text-xs">{s.nis} · {s.student_class} · {s.dormitory}</span>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )
-                                )}
-                            </div>
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                    {/* LEFT: Student + Checklist */}
+                    <div className="lg:col-span-3 space-y-5">
 
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Jenis Iuran</label>
-                                <select required value={payForm.fee_definition_id} onChange={e => setPayForm({ ...payForm, fee_definition_id: e.target.value })}
-                                    className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none">
-                                    <option value="" disabled>-- Pilih Iuran --</option>
-                                    {feeDefs.filter(f => f.is_active).map(f => (
-                                        <option key={f.id} value={f.id}>{f.nama_iuran} — Rp {f.nominal.toLocaleString("id-ID")}/{PERIODE_LABEL[f.tipe_periode]}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
+                        {/* Step 1: Pilih Santri */}
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                            <h3 className="font-bold text-gray-700 mb-3 flex items-center gap-2">
+                                <span className="w-6 h-6 rounded-full bg-emerald-600 text-white text-xs flex items-center justify-center font-bold">1</span>
+                                Pilih Santri <span className="text-xs text-gray-400 font-normal ml-1">({students.filter(s => !genderFilter || s.gender?.toUpperCase() === genderFilter).length} santri {genderBadge})</span>
+                            </h3>
+                            {/* Search */}
+                            <input type="text" placeholder="🔍 Ketik nama, NIS, atau kelas..."
+                                value={studentSearch}
+                                onChange={e => { setStudentSearch(e.target.value); if (selectedStudent) setSelectedStudent(null); }}
+                                className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none text-sm mb-2" />
+
+                            {selectedStudent ? (
+                                <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white text-sm ${selectedStudent.gender === "PUTRI" ? "bg-pink-500" : "bg-blue-500"}`}>
+                                        {selectedStudent.full_name.charAt(0)}
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="font-bold text-gray-800">{selectedStudent.full_name}</p>
+                                        <p className="text-xs text-gray-500">{selectedStudent.nis} · {selectedStudent.student_class} · {selectedStudent.dormitory}</p>
+                                    </div>
+                                    <button type="button" onClick={() => { setSelectedStudent(null); setStudentSearch(""); setCheckedFees(new Set()); }} className="text-gray-400 hover:text-red-500 transition">
+                                        <span className="material-icons text-base">close</span>
+                                    </button>
+                                </div>
+                            ) : studentSearch.length > 0 && (
+                                <div className="border border-gray-200 rounded-xl overflow-hidden max-h-52 overflow-y-auto">
+                                    {filteredStudents.length === 0
+                                        ? <div className="p-4 text-center text-gray-400 text-sm">Santri tidak ditemukan</div>
+                                        : filteredStudents.map(s => (
+                                            <button key={s.student_id} type="button"
+                                                onClick={() => { setSelectedStudent(s); setStudentSearch(s.full_name); }}
+                                                className="w-full text-left px-4 py-3 hover:bg-emerald-50 border-b border-gray-50 text-sm flex items-center gap-3">
+                                                <span className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold ${s.gender === "PUTRI" ? "bg-pink-400" : "bg-blue-400"}`}>
+                                                    {s.full_name.charAt(0)}
+                                                </span>
+                                                <div>
+                                                    <p className="font-medium text-gray-800">{s.full_name}</p>
+                                                    <p className="text-xs text-gray-400">{s.nis} · {s.student_class} · {s.dormitory}</p>
+                                                </div>
+                                            </button>
+                                        ))
+                                    }
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Step 2: Centang Iuran */}
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                            <h3 className="font-bold text-gray-700 mb-3 flex items-center gap-2">
+                                <span className="w-6 h-6 rounded-full bg-emerald-600 text-white text-xs flex items-center justify-center font-bold">2</span>
+                                Pilih Iuran yang Dibayar <span className="text-xs text-gray-400 font-normal">(bisa lebih dari 1)</span>
+                            </h3>
+                            {isLoading ? <div className="text-gray-400 text-sm text-center py-4">Memuat iuran...</div>
+                            : activeFees.length === 0 ? <div className="text-gray-400 text-sm text-center py-4">Belum ada iuran aktif</div>
+                            : (
+                                <div className="space-y-2">
+                                    {/* Select all */}
+                                    <button type="button"
+                                        onClick={() => checkedFees.size === activeFees.length ? setCheckedFees(new Set()) : setCheckedFees(new Set(activeFees.map(f => f.id)))}
+                                        className="text-xs text-emerald-600 hover:underline mb-1">
+                                        {checkedFees.size === activeFees.length ? "Batalkan semua" : "Pilih semua"}
+                                    </button>
+                                    {activeFees.map(fee => {
+                                        const checked = checkedFees.has(fee.id);
+                                        return (
+                                            <label key={fee.id} className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition select-none ${checked ? "bg-emerald-50 border-emerald-300" : "bg-gray-50 border-gray-200 hover:bg-gray-100"}`}>
+                                                <input type="checkbox" checked={checked} onChange={() => toggleFee(fee.id)} className="w-4 h-4 accent-emerald-600 rounded" />
+                                                <div className="flex-1">
+                                                    <p className="font-semibold text-gray-800 text-sm">{fee.nama_iuran}</p>
+                                                    <p className="text-xs text-gray-500">{PERIODE_LABEL[fee.tipe_periode]} {fee.kategori_dana ? `· Dana ${fee.kategori_dana}` : ""}</p>
+                                                </div>
+                                                <span className="font-bold text-gray-700 text-sm">Rp {fee.nominal.toLocaleString("id-ID")}</span>
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* RIGHT: Summary & Confirm */}
+                    <div className="lg:col-span-2 space-y-5">
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 sticky top-6">
+                            <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2">
+                                <span className="w-6 h-6 rounded-full bg-emerald-600 text-white text-xs flex items-center justify-center font-bold">3</span>
+                                Konfirmasi & Simpan
+                            </h3>
+
+                            {/* Preview */}
+                            {selectedStudent && checkedFees.size > 0 ? (
+                                <div className="bg-gray-50 rounded-xl p-4 mb-4 space-y-2">
+                                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Ringkasan Pembayaran</p>
+                                    <p className="font-bold text-gray-800">{selectedStudent.full_name}</p>
+                                    <div className="space-y-1">
+                                        {Array.from(checkedFees).map(id => {
+                                            const fee = feeDefs.find(f => f.id === id)!;
+                                            return (
+                                                <div key={id} className="flex justify-between text-sm">
+                                                    <span className="text-gray-600">{fee.nama_iuran}</span>
+                                                    <span className="font-semibold text-gray-800">Rp {fee.nominal.toLocaleString("id-ID")}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                    <div className="border-t border-gray-200 pt-2 flex justify-between font-bold text-emerald-700">
+                                        <span>Total</span>
+                                        <span>Rp {totalChecked.toLocaleString("id-ID")}</span>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="bg-gray-50 rounded-xl p-4 mb-4 text-center text-gray-400 text-sm">
+                                    <span className="material-icons text-3xl text-gray-200 block mb-1">receipt_long</span>
+                                    Pilih santri & centang iuran dulu
+                                </div>
+                            )}
+
+                            <form onSubmit={handleSavePayment} className="space-y-3">
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Nominal Dibayar (Rp)</label>
-                                    <input type="number" required min="1" value={payForm.nominal_dibayar} onChange={e => setPayForm({ ...payForm, nominal_dibayar: e.target.value })}
-                                        className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" />
+                                    <label className="block text-xs font-semibold text-gray-600 mb-1">Tanggal Bayar</label>
+                                    <input type="date" value={payDate} onChange={e => setPayDate(e.target.value)}
+                                        className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Tanggal Bayar</label>
-                                    <input type="date" required value={payForm.tanggal_bayar} onChange={e => setPayForm({ ...payForm, tanggal_bayar: e.target.value })}
-                                        className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" />
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                                    <select value={payForm.status} onChange={e => setPayForm({ ...payForm, status: e.target.value })}
-                                        className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none">
-                                        <option value="LUNAS">LUNAS</option>
-                                        <option value="DICICIL">DICICIL</option>
+                                    <label className="block text-xs font-semibold text-gray-600 mb-1">Status</label>
+                                    <select value={payStatus} onChange={e => setPayStatus(e.target.value)}
+                                        className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+                                        <option value="LUNAS">✅ LUNAS</option>
+                                        <option value="DICICIL">🟡 DICICIL</option>
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Label Periode (opsional)</label>
-                                    <input type="text" placeholder="Contoh: 2026-03 / 2026" value={payForm.periode_label} onChange={e => setPayForm({ ...payForm, periode_label: e.target.value })}
-                                        className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" />
+                                    <label className="block text-xs font-semibold text-gray-600 mb-1">Catatan (opsional)</label>
+                                    <textarea rows={2} value={payNote} onChange={e => setPayNote(e.target.value)} placeholder="Contoh: Bayar tunai lewat bendahara"
+                                        className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none resize-none" />
+                                </div>
+                                <button type="submit" disabled={isSaving || !selectedStudent || checkedFees.size === 0}
+                                    className="w-full py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-gray-800 transition disabled:opacity-40 flex items-center justify-center gap-2">
+                                    {isSaving ? (
+                                        <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Menyimpan...</>
+                                    ) : (
+                                        <><span className="material-icons text-base">save</span> Simpan {checkedFees.size > 0 ? `${checkedFees.size} Iuran` : ""}</>
+                                    )}
+                                </button>
+                            </form>
+                        </div>
+
+                        {/* Gender filter override for SUPER_ADMIN */}
+                        {userRole === "SUPER_ADMIN" && (
+                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+                                <p className="text-xs font-semibold text-gray-500 mb-2">Filter Santri</p>
+                                <div className="flex gap-2">
+                                    {["", "PUTRA", "PUTRI"].map(g => (
+                                        <button key={g} onClick={() => setGenderFilter(g)}
+                                            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition ${genderFilter === g ? "bg-emerald-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
+                                            {g === "" ? "👥 Semua" : g === "PUTRA" ? "🙋‍♂️ Putra" : "🙋‍♀️ Putri"}
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Catatan</label>
-                                <textarea rows={2} value={payForm.catatan} onChange={e => setPayForm({ ...payForm, catatan: e.target.value })}
-                                    className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" />
-                            </div>
-                            <button type="submit" disabled={isSaving || !payForm.student_id}
-                                className="w-full py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 transition disabled:opacity-40">
-                                {isSaving ? "Menyimpan..." : "Simpan Pembayaran"}
-                            </button>
-                        </form>
                         )}
-                    </div>
-
-                    {/* Info Panel */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                        <h3 className="font-bold text-gray-700 mb-4">💡 Panduan Label Periode</h3>
-                        <div className="space-y-3 text-sm text-gray-600">
-                            <div className="bg-blue-50 rounded-lg p-3">
-                                <p className="font-semibold text-blue-700">Iuran Bulanan</p>
-                                <p>Format: <code className="bg-blue-100 px-1 rounded">YYYY-MM</code></p>
-                                <p>Contoh: <code className="bg-blue-100 px-1 rounded">2026-03</code> (Maret 2026)</p>
-                            </div>
-                            <div className="bg-purple-50 rounded-lg p-3">
-                                <p className="font-semibold text-purple-700">Iuran Semester</p>
-                                <p>Format: <code className="bg-purple-100 px-1 rounded">YYYY-S1</code> atau <code className="bg-purple-100 px-1 rounded">YYYY-S2</code></p>
-                                <p>Contoh: <code className="bg-purple-100 px-1 rounded">2026-S1</code> (Semester 1)</p>
-                            </div>
-                            <div className="bg-yellow-50 rounded-lg p-3">
-                                <p className="font-semibold text-yellow-700">Iuran Tahunan</p>
-                                <p>Format: <code className="bg-yellow-100 px-1 rounded">YYYY</code></p>
-                                <p>Contoh: <code className="bg-yellow-100 px-1 rounded">2026</code></p>
-                            </div>
-                            <p className="text-gray-400 italic text-xs">* Jika kosong, sistem akan otomatis mengisi berdasarkan tanggal hari ini.</p>
-                        </div>
-
-                        {/* Stats */}
-                        <div className="mt-6 pt-4 border-t border-gray-100">
-                            <h4 className="font-semibold text-gray-600 text-sm mb-3">📊 Rangkuman</h4>
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="bg-gray-50 rounded-xl p-3 text-center">
-                                    <p className="text-2xl font-bold text-gray-800">{students.length}</p>
-                                    <p className="text-xs text-gray-500 mt-1">Total Santri</p>
-                                </div>
-                                <div className="bg-emerald-50 rounded-xl p-3 text-center">
-                                    <p className="text-2xl font-bold text-emerald-700">{feeDefs.filter(f => f.is_active).length}</p>
-                                    <p className="text-xs text-emerald-600 mt-1">Jenis Iuran Aktif</p>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             )}
