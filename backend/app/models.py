@@ -381,3 +381,48 @@ class Expense(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     sync_status = Column(Boolean, default=False)
 
+
+# =============================================================
+# MODUL IURAN SANTRI
+# =============================================================
+
+class FeePeriodEnum(str, enum.Enum):
+    BULANAN   = "BULANAN"
+    SEMESTER  = "SEMESTER"
+    TAHUNAN   = "TAHUNAN"
+    INSIDENTAL = "INSIDENTAL"
+
+class FeeDefinition(Base):
+    """Master tabel jenis iuran wajib santri."""
+    __tablename__ = "fee_definitions"
+
+    id              = Column(Integer, primary_key=True, index=True)
+    nama_iuran      = Column(String, nullable=False)        # Makan, Syahriyah, PHBI, Haflah …
+    tipe_periode    = Column(SqlEnum(FeePeriodEnum), nullable=False)
+    nominal         = Column(Float, nullable=False)          # Nominal terkini (bisa diubah admin)
+    kategori_dana   = Column(String, nullable=True)          # Makan / Pembangunan / Kegiatan
+    is_active       = Column(Boolean, default=True)
+    created_at      = Column(DateTime, default=datetime.datetime.utcnow)
+    sync_status     = Column(Boolean, default=False)
+
+class PaymentStatusEnum(str, enum.Enum):
+    LUNAS       = "LUNAS"
+    DICICIL     = "DICICIL"
+    BELUM_BAYAR = "BELUM_BAYAR"
+
+class StudentPayment(Base):
+    """Rekaman pembayaran seorang santri untuk satu definisi iuran pada periode tertentu."""
+    __tablename__ = "student_payments"
+
+    id                  = Column(Integer, primary_key=True, index=True)
+    student_id          = Column(Integer, ForeignKey("students.student_id"), nullable=False)
+    fee_definition_id   = Column(Integer, ForeignKey("fee_definitions.id"), nullable=False)
+    periode_label       = Column(String, nullable=True)     # Contoh: "2026-03" untuk bulanan, "2026" untuk tahunan
+    tanggal_bayar       = Column(Date,   nullable=True)
+    nominal_dibayar     = Column(Float,  default=0.0)
+    status              = Column(SqlEnum(PaymentStatusEnum), default=PaymentStatusEnum.BELUM_BAYAR)
+    catatan             = Column(String, nullable=True)
+    received_by_user_id = Column(Integer, ForeignKey("users.user_id"), nullable=True)
+    created_at          = Column(DateTime, default=datetime.datetime.utcnow)
+    sync_status         = Column(Boolean, default=False)
+

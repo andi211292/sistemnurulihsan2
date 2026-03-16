@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 import asyncio
 
 from . import models, schemas, crud
-from . routers import rfid, tahfidz, keuangan, academic, auth, absensi, medical, ranking, gallery
+from . routers import rfid, tahfidz, keuangan, academic, auth, absensi, medical, ranking, gallery, iuran
 from .database import engine, SessionLocal
 from .services import sync_worker
 
@@ -245,3 +245,4 @@ app.include_router(absensi.router)
 app.include_router(medical.router)
 app.include_router(ranking.router)
 app.include_router(gallery.router)
+app.include_router(iuran.router)

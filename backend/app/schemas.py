@@ -1,7 +1,7 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 from datetime import datetime, date
-from .models import RoleEnum, TransactionTypeEnum, MealTypeEnum, AttendanceTypeEnum, AttendanceStatusEnum, GenderEnum, ExpenseFrequencyEnum
+from .models import RoleEnum, TransactionTypeEnum, MealTypeEnum, AttendanceTypeEnum, AttendanceStatusEnum, GenderEnum, ExpenseFrequencyEnum, FeePeriodEnum, PaymentStatusEnum
 
 # --- User Schemas ---
 class UserBase(BaseModel):
@@ -415,3 +415,62 @@ class ExpenseResponse(ExpenseBase):
 
     class Config:
         from_attributes = True
+
+# --- Iuran Santri Schemas ---
+class FeeDefinitionBase(BaseModel):
+    nama_iuran: str
+    tipe_periode: FeePeriodEnum
+    nominal: float
+    kategori_dana: Optional[str] = None
+    is_active: bool = True
+
+class FeeDefinitionCreate(FeeDefinitionBase):
+    pass
+
+class FeeDefinitionUpdate(BaseModel):
+    nama_iuran: Optional[str] = None
+    nominal: Optional[float] = None
+    kategori_dana: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class FeeDefinitionResponse(FeeDefinitionBase):
+    id: int
+    created_at: datetime
+    sync_status: bool
+
+    class Config:
+        from_attributes = True
+
+class StudentPaymentBase(BaseModel):
+    student_id: int
+    fee_definition_id: int
+    periode_label: Optional[str] = None
+    tanggal_bayar: Optional[date] = None
+    nominal_dibayar: float
+    status: PaymentStatusEnum = PaymentStatusEnum.LUNAS
+    catatan: Optional[str] = None
+
+class StudentPaymentCreate(StudentPaymentBase):
+    pass
+
+class StudentPaymentResponse(StudentPaymentBase):
+    id: int
+    received_by_user_id: Optional[int] = None
+    created_at: datetime
+    sync_status: bool
+    fee_definition: Optional[FeeDefinitionResponse] = None
+    receiver_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+class FeeStatusItem(BaseModel):
+    """Ringkasan status satu iuran untuk satu santri di satu periode."""
+    fee_definition: FeeDefinitionResponse
+    periode_label: str
+    status: PaymentStatusEnum
+    nominal_dibayar: float
+    nominal_tagihan: float
+    sisa_tagihan: float
+    tanggal_bayar: Optional[date] = None
+    payment_id: Optional[int] = None
