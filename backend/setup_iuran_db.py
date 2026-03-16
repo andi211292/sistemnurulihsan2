@@ -31,7 +31,7 @@ CLOUD_DDL = [
     CREATE TABLE IF NOT EXISTS fee_definitions (
         id           SERIAL PRIMARY KEY,
         nama_iuran   VARCHAR(255) NOT NULL,
-        tipe_periode feeperiodenum NOT NULL,
+        tipe_periode VARCHAR(20) NOT NULL,
         nominal      FLOAT NOT NULL,
         kategori_dana VARCHAR(100),
         is_active    BOOLEAN DEFAULT TRUE,
@@ -47,7 +47,7 @@ CLOUD_DDL = [
         periode_label       VARCHAR(20),
         tanggal_bayar       DATE,
         nominal_dibayar     FLOAT DEFAULT 0,
-        status              paymentstatusenum DEFAULT 'BELUM_BAYAR',
+        status              VARCHAR(20) DEFAULT 'BELUM_BAYAR',
         catatan             TEXT,
         received_by_user_id INTEGER REFERENCES users(user_id),
         created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -108,10 +108,10 @@ def run_many(engine, statements, db_name):
                 print(f"  [{db_name}] SKIP/ERROR: {e}")
 
 def seed_fee_definitions(engine, db_name):
-    with engine.connect() as conn:
-        for (nama, periode, nominal, kategori) in SEED_IURAN:
+    for (nama, periode, nominal, kategori) in SEED_IURAN:
+        # Each row gets its own connection to avoid cascading transaction abort
+        with engine.connect() as conn:
             try:
-                # Skip if already exists (by name)
                 existing = conn.execute(
                     text("SELECT id FROM fee_definitions WHERE nama_iuran = :n"),
                     {"n": nama}
@@ -122,7 +122,7 @@ def seed_fee_definitions(engine, db_name):
                 conn.execute(
                     text("""INSERT INTO fee_definitions
                             (nama_iuran, tipe_periode, nominal, kategori_dana, is_active)
-                            VALUES (:n, :p, :nom, :k, 1)"""),
+                            VALUES (:n, :p, :nom, :k, TRUE)"""),
                     {"n": nama, "p": periode, "nom": nominal, "k": kategori}
                 )
                 conn.commit()

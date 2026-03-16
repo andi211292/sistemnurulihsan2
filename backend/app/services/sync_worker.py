@@ -485,6 +485,67 @@ async def sync_data_to_cloud():
                     local_db.rollback()
                     logger.error(f"Error syncing Expenses: {e}")
 
+                # ====== 13. Sync Fee Definitions (Iuran Master) ======
+                try:
+                    fee_defs_to_sync = local_db.query(models.FeeDefinition).filter(
+                        models.FeeDefinition.sync_status == False
+                    ).all()
+                    if fee_defs_to_sync:
+                        for fd in fee_defs_to_sync:
+                            fd_dict = {
+                                "id": fd.id,
+                                "nama_iuran": fd.nama_iuran,
+                                "tipe_periode": fd.tipe_periode.value if hasattr(fd.tipe_periode, 'value') else fd.tipe_periode,
+                                "nominal": fd.nominal,
+                                "kategori_dana": fd.kategori_dana,
+                                "is_active": fd.is_active,
+                                "created_at": fd.created_at,
+                                "sync_status": True
+                            }
+                            stmt = pg_insert(models.FeeDefinition).values(fd_dict)
+                            stmt = stmt.on_conflict_do_update(index_elements=['id'], set_=fd_dict)
+                            cloud_db.execute(stmt)
+                            fd.sync_status = True
+                            logger_count += 1
+                        cloud_db.commit()
+                        local_db.commit()
+                except Exception as e:
+                    cloud_db.rollback()
+                    local_db.rollback()
+                    logger.error(f"Error syncing Fee Definitions: {e}")
+
+                # ====== 14. Sync Student Payments (Iuran Santri) ======
+                try:
+                    sp_to_sync = local_db.query(models.StudentPayment).filter(
+                        models.StudentPayment.sync_status == False
+                    ).all()
+                    if sp_to_sync:
+                        for sp in sp_to_sync:
+                            sp_dict = {
+                                "id": sp.id,
+                                "student_id": sp.student_id,
+                                "fee_definition_id": sp.fee_definition_id,
+                                "periode_label": sp.periode_label,
+                                "tanggal_bayar": sp.tanggal_bayar,
+                                "nominal_dibayar": sp.nominal_dibayar,
+                                "status": sp.status.value if hasattr(sp.status, 'value') else sp.status,
+                                "catatan": sp.catatan,
+                                "received_by_user_id": sp.received_by_user_id,
+                                "created_at": sp.created_at,
+                                "sync_status": True
+                            }
+                            stmt = pg_insert(models.StudentPayment).values(sp_dict)
+                            stmt = stmt.on_conflict_do_update(index_elements=['id'], set_=sp_dict)
+                            cloud_db.execute(stmt)
+                            sp.sync_status = True
+                            logger_count += 1
+                        cloud_db.commit()
+                        local_db.commit()
+                except Exception as e:
+                    cloud_db.rollback()
+                    local_db.rollback()
+                    logger.error(f"Error syncing Student Payments: {e}")
+
                 if logger_count > 0:
                     logger.info(f"[{datetime.now()}] Sinkronisasi SUKSES: {logger_count} entri sinkronisasi baru dipush.")
 

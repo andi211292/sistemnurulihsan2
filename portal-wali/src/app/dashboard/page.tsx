@@ -112,11 +112,30 @@ interface Notification {
     read: boolean;
 }
 
+interface FeeDefinitionPortal {
+    id: number;
+    nama_iuran: string;
+    tipe_periode: string;
+    nominal: number;
+    kategori_dana: string;
+}
+
+interface FeeStatusItem {
+    fee_definition: FeeDefinitionPortal;
+    periode_label: string;
+    status: string;
+    nominal_dibayar: number;
+    nominal_tagihan: number;
+    sisa_tagihan: number;
+    tanggal_bayar: string | null;
+    payment_id: number | null;
+}
+
 export default function DashboardPage() {
     const router = useRouter();
 
     // VIEW STATE
-    const [currentView, setCurrentView] = useState("dashboard"); // dashboard, jajan, absensi, keuangan, donasi, kesehatan, perizinan, ranking, galeri
+    const [currentView, setCurrentView] = useState("dashboard"); // dashboard, jajan, absensi, keuangan, donasi, kesehatan, perizinan, ranking, galeri, iuran
     const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
 
     const [student, setStudent] = useState<Student | null>(null);
@@ -138,6 +157,7 @@ export default function DashboardPage() {
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [feeStatus, setFeeStatus] = useState<FeeStatusItem[]>([]);
 
     useEffect(() => {
         // Basic Session Check
@@ -244,6 +264,39 @@ export default function DashboardPage() {
                 { id: 3, full_name: "Muhammad Fikri", category: "Paling Disiplin", position: 3 }
             ]);
 
+            // Fee Status (Iuran) from Supabase
+            try {
+                const now = new Date();
+                const allFees = await supabase.from('fee_definitions').select('*').eq('is_active', true);
+                const allPayments = await supabase.from('student_payments').select('*').eq('student_id', studentId);
+
+                if (allFees.data && allPayments.data) {
+                    const statusItems: FeeStatusItem[] = allFees.data.map((fee: FeeDefinitionPortal) => {
+                        let periodeLabel = String(now.getFullYear());
+                        if (fee.tipe_periode === 'BULANAN') periodeLabel = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+                        else if (fee.tipe_periode === 'SEMESTER') periodeLabel = `${now.getFullYear()}-S${now.getMonth() < 6 ? 1 : 2}`;
+
+                        const payment = allPayments.data!.find(
+                            (p: {fee_definition_id: number; periode_label: string}) => p.fee_definition_id === fee.id && p.periode_label === periodeLabel
+                        );
+
+                        return {
+                            fee_definition: fee,
+                            periode_label: periodeLabel,
+                            status: payment ? payment.status : 'BELUM_BAYAR',
+                            nominal_dibayar: payment ? payment.nominal_dibayar : 0,
+                            nominal_tagihan: fee.nominal,
+                            sisa_tagihan: payment ? Math.max(0, fee.nominal - payment.nominal_dibayar) : fee.nominal,
+                            tanggal_bayar: payment ? payment.tanggal_bayar : null,
+                            payment_id: payment ? payment.id : null,
+                        };
+                    });
+                    setFeeStatus(statusItems);
+                }
+            } catch {
+                // Fee status optional - don't crash if fails
+            }
+
             // Gallery (Mock for now)
             setGallery([
                 { id: 1, title: "Belajar Bersama", url: "https://images.unsplash.com/photo-1577891729319-f4871c674881?auto=format", category: "Pendidikan" },
@@ -320,6 +373,7 @@ export default function DashboardPage() {
             <MenuCard title="Riwayat Jajan" icon="shopping_bag" color="bg-orange-100 text-orange-600" onClick={() => setCurrentView("jajan")} />
             <MenuCard title="Absensi Bulanan" icon="calendar_month" color="bg-emerald-100 text-emerald-600" onClick={() => setCurrentView("absensi")} />
             <MenuCard title="Top Up Saldo" icon="add_card" color="bg-blue-100 text-blue-600" onClick={() => setCurrentView("keuangan")} />
+            <MenuCard title="Rincian Iuran" icon="receipt_long" color="bg-teal-100 text-teal-600" onClick={() => setCurrentView("iuran")} />
             <MenuCard title="Hubungi Keuangan" icon="support_agent" color="bg-indigo-100 text-indigo-600" onClick={() => openWhatsApp(`Halo admin keuangan Pesantren Nurul Ihsan, saya ingin menanyakan terkait pembayaran santri anak saya ${student.full_name}.`)} />
             <MenuCard title="Donasi QRIS" icon="qr_code_2" color="bg-purple-100 text-purple-600" onClick={() => setCurrentView("donasi")} />
             <MenuCard title="Kesehatan" icon="medical_services" color="bg-red-100 text-red-600" onClick={() => setCurrentView("kesehatan")} />
@@ -329,6 +383,101 @@ export default function DashboardPage() {
             <MenuCard title="Galeri Kegiatan" icon="auto_stories" color="bg-teal-100 text-teal-600" onClick={() => setCurrentView("galeri")} />
         </div>
     );
+
+    const STATUS_CONFIG = {
+        LUNAS: { bg: "bg-emerald-100", text: "text-emerald-700", label: "✅ LUNAS" },
+        DICICIL: { bg: "bg-yellow-100", text: "text-yellow-700", label: "🟡 DICICIL" },
+        BELUM_BAYAR: { bg: "bg-red-100", text: "text-red-700", label: "❌ BELUM BAYAR" },
+    };
+
+    const PERIODE_LABEL_MAP: Record<string, string> = {
+        BULANAN: "Bulanan", SEMESTER: "Semester", TAHUNAN: "Tahunan", INSIDENTAL: "Insidental"
+    };
+
+    const renderIuranView = () => {
+        const totalTagihan = feeStatus.reduce((s, i) => s + i.nominal_tagihan, 0);
+        const totalDibayar = feeStatus.reduce((s, i) => s + i.nominal_dibayar, 0);
+        const totalSisa = feeStatus.reduce((s, i) => s + i.sisa_tagihan, 0);
+        const tunggakan = feeStatus.filter(i => i.status !== 'LUNAS');
+
+        return (
+            <div className="space-y-5">
+                <ViewHeader title="Rincian Iuran" onBack={() => setCurrentView("dashboard")} />
+
+                {/* Summary Cards */}
+                <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-white rounded-xl p-3 text-center shadow-sm border border-gray-100">
+                        <p className="text-xs text-gray-500 mb-1">Total Tagihan</p>
+                        <p className="font-bold text-gray-800 text-sm">{formatRupiah(totalTagihan)}</p>
+                    </div>
+                    <div className="bg-emerald-50 rounded-xl p-3 text-center shadow-sm border border-emerald-100">
+                        <p className="text-xs text-emerald-600 mb-1">Sudah Dibayar</p>
+                        <p className="font-bold text-emerald-700 text-sm">{formatRupiah(totalDibayar)}</p>
+                    </div>
+                    <div className="bg-red-50 rounded-xl p-3 text-center shadow-sm border border-red-100">
+                        <p className="text-xs text-red-500 mb-1">Sisa Tunggakan</p>
+                        <p className="font-bold text-red-600 text-sm">{formatRupiah(totalSisa)}</p>
+                    </div>
+                </div>
+
+                {/* Alert tunggakan */}
+                {tunggakan.length > 0 && (
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+                        <span className="material-icons text-red-500 mt-0.5 text-xl">warning</span>
+                        <div>
+                            <p className="font-semibold text-red-700 text-sm">Ada {tunggakan.length} iuran belum lunas</p>
+                            <p className="text-xs text-red-500 mt-0.5">Segera hubungi admin untuk konfirmasi pembayaran</p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Daftar iuran */}
+                <div className="space-y-3">
+                    {feeStatus.length === 0 ? (
+                        <div className="bg-white rounded-xl p-8 text-center text-gray-400 shadow-sm">
+                            <span className="material-icons text-4xl text-gray-200 mb-2 block">receipt_long</span>
+                            <p>Data iuran tidak tersedia</p>
+                        </div>
+                    ) : feeStatus.map((item, i) => {
+                        const conf = STATUS_CONFIG[item.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.BELUM_BAYAR;
+                        return (
+                            <div key={i} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+                                <div className="flex justify-between items-start mb-2">
+                                    <div>
+                                        <p className="font-bold text-gray-800">{item.fee_definition.nama_iuran}</p>
+                                        <p className="text-xs text-gray-400 mt-0.5">
+                                            {PERIODE_LABEL_MAP[item.fee_definition.tipe_periode] || item.fee_definition.tipe_periode} · Periode: {item.periode_label}
+                                            {item.fee_definition.kategori_dana ? ` · Dana ${item.fee_definition.kategori_dana}` : ''}
+                                        </p>
+                                    </div>
+                                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${conf.bg} ${conf.text}`}>
+                                        {conf.label}
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-gray-50 text-center">
+                                    <div>
+                                        <p className="text-[10px] text-gray-400 mb-0.5">Tagihan</p>
+                                        <p className="text-sm font-semibold text-gray-700">{formatRupiah(item.nominal_tagihan)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] text-gray-400 mb-0.5">Dibayar</p>
+                                        <p className="text-sm font-semibold text-emerald-600">{formatRupiah(item.nominal_dibayar)}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] text-gray-400 mb-0.5">Sisa</p>
+                                        <p className={`text-sm font-semibold ${item.sisa_tagihan > 0 ? 'text-red-500' : 'text-emerald-600'}`}>{formatRupiah(item.sisa_tagihan)}</p>
+                                    </div>
+                                </div>
+                                {item.tanggal_bayar && (
+                                    <p className="mt-2 text-xs text-gray-400 text-right">Dibayar: {formatDate(item.tanggal_bayar)}</p>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    };
 
     const renderJajanView = () => {
         const filteredTrans = transactions.filter(t => {
@@ -697,6 +846,7 @@ export default function DashboardPage() {
             case "ranking": return renderRankingView();
             case "galeri": return renderGaleriView();
             case "syahriyah": return renderSyahriyahView();
+            case "iuran": return renderIuranView();
             default: return (
                 <>
                     <SummaryModule 

@@ -41,6 +41,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
         { name: "Koperasi & E-Money", path: "/keuangan/emoney", allowed: ["SUPER_ADMIN", "KASIR_KOP_PUSAT", "KASIR_KOP_LUAR"] },
         { name: "Tagihan Syahriyah", path: "/keuangan/syahriyah", allowed: ["SUPER_ADMIN", "KASIR_SYAHRIYAH_PUTRA", "KASIR_SYAHRIYAH_PUTRI"] },
         { name: "💸 Pengeluaran Kas", path: "/keuangan/pengeluaran", allowed: ["SUPER_ADMIN", "KASIR_KOP_PUSAT"] },
+        { name: "📋 Manajemen Iuran", path: "/keuangan/iuran", allowed: ["SUPER_ADMIN", "KASIR_SYAHRIYAH_PUTRA", "KASIR_SYAHRIYAH_PUTRI"] },
         { name: "👨‍🏫 Data Guru", path: "/guru", allowed: ["SUPER_ADMIN", "PENGURUS_SEKOLAH"] },
         { name: "⚖️ Kedisiplinan", path: "/kedisiplinan", allowed: ["SUPER_ADMIN", "PENGURUS_SANTRI", "GURU_BP", "PENGURUS_KEAMANAN"] },
         { name: "🏥 Klinik Kesehatan", path: "/kesehatan", allowed: ["SUPER_ADMIN", "PENGURUS_SANTRI"] },
