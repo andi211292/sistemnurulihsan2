@@ -372,7 +372,6 @@ export default function DashboardPage() {
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             <MenuCard title="Riwayat Jajan" icon="shopping_bag" color="bg-orange-100 text-orange-600" onClick={() => setCurrentView("jajan")} />
             <MenuCard title="Absensi Bulanan" icon="calendar_month" color="bg-emerald-100 text-emerald-600" onClick={() => setCurrentView("absensi")} />
-            <MenuCard title="Top Up Saldo" icon="add_card" color="bg-blue-100 text-blue-600" onClick={() => setCurrentView("keuangan")} />
             <MenuCard title="Rincian Iuran" icon="receipt_long" color="bg-teal-100 text-teal-600" onClick={() => setCurrentView("iuran")} />
             <MenuCard title="Hubungi Keuangan" icon="support_agent" color="bg-indigo-100 text-indigo-600" onClick={() => openWhatsApp(`Halo admin keuangan Pesantren Nurul Ihsan, saya ingin menanyakan terkait pembayaran santri anak saya ${student.full_name}.`)} />
             <MenuCard title="Donasi QRIS" icon="qr_code_2" color="bg-purple-100 text-purple-600" onClick={() => setCurrentView("donasi")} />
