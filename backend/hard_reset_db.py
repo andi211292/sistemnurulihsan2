@@ -8,11 +8,11 @@ sys.path.append(current_dir)
 
 from app.database import engine, SessionLocal
 from app.models import (
-    Base, User, RoleEnum, Student, Attendance, StudentLeave, DisciplinaryRecord,
+    Base, User, RoleEnum, Student, Attendance, StudentLeave, StudentViolation,
     TahfidzRecord, Billing, PaymentTransaction, MedicalRecord, Announcement,
     Teacher, RFIDLog, StudentEMoney, EMoneyTransaction, GalleryActivity,
     ExpenseCategory, Expense, FeePeriodEnum, FeeDefinition, PaymentStatusEnum,
-    StudentPayment, Ranking
+    StudentPayment, StudentRanking
 )
 from passlib.context import CryptContext
 
@@ -160,8 +160,8 @@ def main():
             konf = input("Ketik 'YAKIN' untuk reset pelanggaran: ")
             if konf == 'YAKIN': 
                 reset_partial("Pelanggaran & Disiplin", 
-                    [DisciplinaryRecord], 
-                    ["disciplinary_records"])
+                    [StudentViolation], 
+                    ["student_violations"])
         else:
             print("Pilihan tidak valid.")
 
