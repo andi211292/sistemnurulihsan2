@@ -5,9 +5,9 @@ from contextlib import asynccontextmanager
 import asyncio
 
 from . import models, schemas, crud
-from . routers import rfid, tahfidz, keuangan, academic, auth, absensi, medical, ranking, gallery, iuran
+from .routers import rfid, tahfidz, keuangan, academic, auth, absensi, medical, ranking, gallery, iuran
 from .database import engine, SessionLocal
-from .services import sync_worker
+from .services import sync_worker, invoice_worker
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -17,9 +17,13 @@ models.Base.metadata.create_all(bind=engine)
 async def lifespan(app: FastAPI):
     # Startup: Launch Background Task for Cloud Sync
     sync_task = asyncio.create_task(sync_worker.start_sync_worker())
+    # Startup: Launch Invoice Auto-Generator Worker (tanggal 10 tiap bulan)
+    invoice_task = asyncio.create_task(invoice_worker.start_invoice_worker())
+    
     yield
     # Shutdown: Cleanly cancel background tasks
     sync_task.cancel()
+    invoice_task.cancel()
 
 app = FastAPI(
     title="Sistem Manajemen Pondok Pesantren Nurul Ihsan",

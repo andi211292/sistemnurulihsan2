@@ -266,30 +266,30 @@ export default function DashboardPage() {
 
             // Fee Status (Iuran) from Supabase
             try {
-                const now = new Date();
-                const allFees = await supabase.from('fee_definitions').select('*').eq('is_active', true);
-                const allPayments = await supabase.from('student_payments').select('*').eq('student_id', studentId);
+                const { data: allFees } = await supabase.from('fee_definitions').select('*');
+                const { data: allPayments } = await supabase.from('student_payments').select('*').eq('student_id', studentId).order('created_at', { ascending: false });
 
-                if (allFees.data && allPayments.data) {
-                    const statusItems: FeeStatusItem[] = allFees.data.map((fee: FeeDefinitionPortal) => {
-                        let periodeLabel = String(now.getFullYear());
-                        if (fee.tipe_periode === 'BULANAN') periodeLabel = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-                        else if (fee.tipe_periode === 'SEMESTER') periodeLabel = `${now.getFullYear()}-S${now.getMonth() < 6 ? 1 : 2}`;
-
-                        const payment = allPayments.data!.find(
-                            (p: {fee_definition_id: number; periode_label: string}) => p.fee_definition_id === fee.id && p.periode_label === periodeLabel
-                        );
-
+                if (allFees && allPayments) {
+                    const statusItems: FeeStatusItem[] = allPayments.map((payment: any) => {
+                        const fee = allFees.find((f: any) => f.id === payment.fee_definition_id);
+                        if (!fee) return null;
+                        
                         return {
                             fee_definition: fee,
-                            periode_label: periodeLabel,
-                            status: payment ? payment.status : 'BELUM_BAYAR',
-                            nominal_dibayar: payment ? payment.nominal_dibayar : 0,
+                            periode_label: payment.periode_label,
+                            status: payment.status,
+                            nominal_dibayar: payment.nominal_dibayar,
                             nominal_tagihan: fee.nominal,
-                            sisa_tagihan: payment ? Math.max(0, fee.nominal - payment.nominal_dibayar) : fee.nominal,
-                            tanggal_bayar: payment ? payment.tanggal_bayar : null,
-                            payment_id: payment ? payment.id : null,
+                            sisa_tagihan: Math.max(0, fee.nominal - payment.nominal_dibayar),
+                            tanggal_bayar: payment.tanggal_bayar,
+                            payment_id: payment.id,
                         };
+                    }).filter(Boolean) as FeeStatusItem[];
+                    // Sort tunggakan (BELUM_BAYAR / DICICIL) to top
+                    statusItems.sort((a, b) => {
+                        if (a.status !== 'LUNAS' && b.status === 'LUNAS') return -1;
+                        if (a.status === 'LUNAS' && b.status !== 'LUNAS') return 1;
+                        return 0;
                     });
                     setFeeStatus(statusItems);
                 }
