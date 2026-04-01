@@ -10,7 +10,7 @@ from app.database import engine, SessionLocal
 from app.models import (
     Base, User, RoleEnum, Student, Attendance, StudentLeave, StudentViolation,
     TahfidzRecord, Billing, PaymentTransaction, MedicalRecord, Announcement,
-    Teacher, RFIDLog, StudentEMoney, EMoneyTransaction, GalleryActivity,
+    Teacher, Wallet, Transaction, GalleryActivity,
     ExpenseCategory, Expense, FeePeriodEnum, FeeDefinition, PaymentStatusEnum,
     StudentPayment, StudentRanking
 )
@@ -146,8 +146,8 @@ def main():
             konf = input("Ketik 'YAKIN' untuk reset absen & izin: ")
             if konf == 'YAKIN': 
                 reset_partial("Absensi & Perizinan", 
-                    [Attendance, StudentLeave, RFIDLog], 
-                    ["attendances", "student_leaves", "rfid_logs"])
+                    [Attendance, StudentLeave], 
+                    ["attendances", "student_leaves"])
                     
         elif pilihan == '5':
             konf = input("Ketik 'YAKIN' untuk reset kesehatan: ")
