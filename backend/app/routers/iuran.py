@@ -210,30 +210,33 @@ def generate_mass_invoices(
     created_count = 0
     skipped_count = 0
 
+    # Cache existing payments in memory to avoid N+1 queries
+    existing_payments = db.query(models.StudentPayment).filter(
+        models.StudentPayment.periode_label == req.periode_label
+    ).all()
+    
+    payment_exists_set = {(p.student_id, p.fee_definition_id) for p in existing_payments}
+
+    new_invoices = []
+    
     for st in active_students:
         for fee in active_fees:
-            # Cari jika sudah ada invoice untuk periode ini
-            exists = db.query(models.StudentPayment).filter(
-                models.StudentPayment.student_id == st.student_id,
-                models.StudentPayment.fee_definition_id == fee.id,
-                models.StudentPayment.periode_label == req.periode_label
-            ).first()
-
-            if not exists:
-                new_invoice = models.StudentPayment(
+            if (st.student_id, fee.id) not in payment_exists_set:
+                new_invoices.append(models.StudentPayment(
                     student_id=st.student_id,
                     fee_definition_id=fee.id,
                     periode_label=req.periode_label,
                     nominal_dibayar=0.0,
                     status=models.PaymentStatusEnum.BELUM_BAYAR,
                     catatan="Digenerate massal"
-                )
-                db.add(new_invoice)
+                ))
                 created_count += 1
             else:
                 skipped_count += 1
                 
-    if created_count > 0:
+    if new_invoices:
+        # Use bulk_save_objects for massively faster insertion
+        db.bulk_save_objects(new_invoices)
         db.commit()
 
     return {
