@@ -4,8 +4,5 @@
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
   "framework": "nextjs",
-  "regions": ["sin1"],
-  "env": {
-    "BACKEND_URL": "@backend_url"
-  }
+  "regions": ["sin1"]
 }
