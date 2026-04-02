@@ -29,9 +29,12 @@ async function proxyRequest(request: NextRequest, params: any) {
         
         const searchParams = request.nextUrl.searchParams.toString();
 
-        // Target backend on the same STB
-        const targetUrl = `http://127.0.0.1:8080/api/${path}${searchParams ? '?' + searchParams : ''}`;
+        // Target backend: Gunakan env var. Di Vercel isi dengan Cloudflare Tunnel URL.
+        // Di lokal (STB), default ke 127.0.0.1:8080
+        const BACKEND_BASE = process.env.BACKEND_URL || 'http://127.0.0.1:8080';
+        const targetUrl = `${BACKEND_BASE}/api/${path}${searchParams ? '?' + searchParams : ''}`;
         console.log(`[Proxy] ${request.method} ${request.url} -> ${targetUrl}`);
+
 
         // Clone headers and remove ones that cause redirect loops (SSL) or backend confusion
         const headers = new Headers();
