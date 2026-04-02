@@ -16,39 +16,43 @@ export default function Home() {
     }
 
     // Fetch basic stats
-    const fetchStats = async () => {
+    const fetchStats = async (role: string) => {
       try {
-        // Get total students
+        // Get total students (All roles can see this usually)
         const resStudents = await apiFetch(`/api/students/`);
         if (resStudents.ok) {
           const data = await resStudents.json();
           setTotalStudents(data.length);
         }
 
-        // Get empty classes
-        const resEmpty = await apiFetch(`/api/academic/empty-classes`);
-        if (resEmpty.ok) {
-          const dataObj = await resEmpty.json();
-          if (Array.isArray(dataObj)) {
-            setEmptyClassesCount(dataObj.length);
+        // Get empty classes (Only for relevant roles)
+        if (role === "SUPER_ADMIN" || role === "PENGURUS_SEKOLAH" || role === "PENGURUS_SANTRI") {
+          const resEmpty = await apiFetch(`/api/academic/empty-classes`);
+          if (resEmpty.ok) {
+            const dataObj = await resEmpty.json();
+            if (Array.isArray(dataObj)) {
+              setEmptyClassesCount(dataObj.length);
+            }
           }
         }
 
-        // Get expenses for current month
-        const currentMonth = new Date().getMonth() + 1;
-        const currentYear = new Date().getFullYear();
-        const resExpense = await apiFetch(`/api/keuangan/pengeluaran/?month=${currentMonth}&year=${currentYear}`);
-        if(resExpense.ok) {
-           const expData = await resExpense.json();
-           const total = expData.reduce((sum: number, item: any) => sum + item.amount, 0);
-           setTotalExpenseMonth(total);
+        // Get expenses for current month (Only for Super Admin or Kasir)
+        if (role === "SUPER_ADMIN" || role.startsWith("KASIR")) {
+          const currentMonth = new Date().getMonth() + 1;
+          const currentYear = new Date().getFullYear();
+          const resExpense = await apiFetch(`/api/keuangan/pengeluaran/?month=${currentMonth}&year=${currentYear}`);
+          if(resExpense.ok) {
+             const expData = await resExpense.json();
+             const total = expData.reduce((sum: number, item: any) => sum + item.amount, 0);
+             setTotalExpenseMonth(total);
+          }
         }
       } catch (e) {
-        console.error("Failed to load dashboard stats", e);
+        console.error("Dashboard stats background check failed (expected for restricted roles)", e);
       }
     };
 
-    fetchStats();
+    fetchStats(savedRole || userRole);
   }, []);
 
   const roleNameMapping: { [key: string]: string } = {
