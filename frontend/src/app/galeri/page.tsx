@@ -32,7 +32,7 @@ export default function GaleriPage() {
 
     const fetchData = async () => {
         try {
-            const res = await apiFetch(`/api/gallery/`);
+            const res = await apiFetch(`/api/gallery`);
             if (res.ok) setItems(await res.json());
         } catch (e) {
             console.error(e);
