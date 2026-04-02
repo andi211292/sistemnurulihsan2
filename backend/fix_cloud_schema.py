@@ -44,7 +44,12 @@ migrations = [
     "ALTER TYPE attendancetypeenum ADD VALUE IF NOT EXISTS 'MALAM_KAMAR'",
     
     # 4. Add sync_status to student_violations if missing
-    "ALTER TABLE student_violations ADD COLUMN IF NOT EXISTS sync_status BOOLEAN DEFAULT FALSE"
+    "ALTER TABLE student_violations ADD COLUMN IF NOT EXISTS sync_status BOOLEAN DEFAULT FALSE",
+    
+    # 5. FIX FOR STUDENTS TABLE (CRITICAL FOR SYNC)
+    "ALTER TABLE students ADD COLUMN IF NOT EXISTS emoney_balance FLOAT DEFAULT 0.0",
+    "ALTER TABLE students ADD COLUMN IF NOT EXISTS batas_jajan_harian INTEGER DEFAULT 15000",
+    "ALTER TABLE students ADD COLUMN IF NOT EXISTS sync_status BOOLEAN DEFAULT FALSE"
 ]
 
 print("Starting Cloud Migration...")
