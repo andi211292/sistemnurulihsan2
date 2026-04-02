@@ -49,6 +49,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
         { name: "📸 Galeri Kegiatan", path: "/galeri", allowed: ["SUPER_ADMIN", "PENGURUS_SANTRI", "PENGURUS_SEKOLAH"] },
         { name: "🖨️ Laporan Bulanan", path: "/laporan", allowed: ["SUPER_ADMIN"] },
         { name: "📊 Laporan Keuangan", path: "/laporan-keuangan", allowed: ["SUPER_ADMIN", "KASIR_KOP_PUSAT"] },
+        { name: "👤 Manajemen Pengguna", path: "/pengguna", allowed: ["SUPER_ADMIN"] },
     ];
 
     const filteredMenus = menuItems.filter(item => item.allowed.includes(role));
