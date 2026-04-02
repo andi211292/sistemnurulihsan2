@@ -54,7 +54,7 @@ export default function RankingPage() {
         try {
             // Load students
             if (students.length === 0) {
-                const stRes = await apiFetch(`/api/students/`);
+                const stRes = await apiFetch(`/api/students`);
                 if (stRes.ok) setStudents(await stRes.json());
             }
 

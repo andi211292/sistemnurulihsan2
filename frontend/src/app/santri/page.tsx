@@ -47,7 +47,7 @@ export default function SantriPage() {
     const fetchStudents = async () => {
         try {
             setLoading(true);
-            const res = await apiFetch(`/api/students/`);
+            const res = await apiFetch(`/api/students`);
             if (!res.ok) {
                 throw new Error("Gagal mengambil data dari server lokal");
             }
@@ -214,7 +214,7 @@ export default function SantriPage() {
                 batas_jajan_harian: formData.batas_jajan_harian
             };
             if (modalMode === "add") {
-                const res = await apiFetch(`/api/students/`, {
+                const res = await apiFetch(`/api/students`, {
                     method: "POST",
                     body: JSON.stringify(payload)
                 });

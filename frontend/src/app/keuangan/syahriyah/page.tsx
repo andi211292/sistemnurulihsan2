@@ -99,7 +99,7 @@ export default function SyahriyahPage() {
         // Fetch all students for the autocomplete
         const fetchStudents = async () => {
             try {
-                const res = await apiFetch(`/api/students/`);
+                const res = await apiFetch(`/api/students`);
                 if (res.ok) setStudentsList(await res.json());
             } catch (err) {
                 console.error("Gagal mengambil daftar santri");

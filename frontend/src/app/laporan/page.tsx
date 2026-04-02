@@ -57,7 +57,7 @@ export default function LaporanPage() {
         const fetchData = async () => {
             setLoading(true);
             try {
-                const stRes = await fetch(`/api/students/`);
+                const stRes = await fetch(`/api/students`);
                 if (stRes.ok) setStudents(await stRes.json());
 
                 // Gunakan apiFetch (membawa token JWT otomatis)

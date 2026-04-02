@@ -91,7 +91,7 @@ export default function ManajemenIuranPage() {
         try {
             const [feesRes, studentsRes] = await Promise.all([
                 apiFetch("/api/iuran/definitions"),
-                apiFetch("/api/students/")
+                apiFetch("/api/students")
             ]);
             if (feesRes.ok) setFeeDefs(await feesRes.json());
             if (studentsRes.ok) {
