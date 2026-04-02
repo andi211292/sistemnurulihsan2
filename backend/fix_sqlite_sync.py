@@ -2,10 +2,25 @@ import sqlite3
 import os
 
 def fix_db():
-    db_path = os.path.join(os.path.dirname(__file__), 'pesantren_local.db')
-    if not os.path.exists(db_path):
-        print(f"File tidak ditemukan di {db_path}")
+    dir_path = os.path.dirname(__file__)
+    possible_paths = [
+        os.path.join(dir_path, 'pesantren_local.db'),
+        os.path.join(dir_path, 'data', 'database.db'),
+        os.path.join(dir_path, 'pesantren.db'),
+        'pesantren_local.db'
+    ]
+    
+    db_path = None
+    for p in possible_paths:
+        if os.path.exists(p):
+            db_path = p
+            break
+            
+    if not db_path:
+        print(f"ERROR FATAL: File database SQLite tidak ditemukan sama sekali di dalam folder ini!")
         return
+        
+    print(f"Database ditemukan di: {db_path}")
     
     try:
         conn = sqlite3.connect(db_path)
