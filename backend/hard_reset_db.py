@@ -73,8 +73,10 @@ def reset_full():
         try:
             hashed_password = pwd_context.hash("admin123")
             admin_user = User(
-                username="admin", password=hashed_password,
-                full_name="Administrator Sistem", role=RoleEnum.SUPER_ADMIN,
+                username="admin",
+                password_hash=hashed_password,
+                role=RoleEnum.SUPER_ADMIN,
+                is_active=True,
             )
             db.add(admin_user)
             db.commit()
