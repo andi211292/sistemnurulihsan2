@@ -229,7 +229,8 @@ def generate_mass_invoices(
                     periode_label=req.periode_label,
                     nominal_dibayar=0.0,
                     status=models.PaymentStatusEnum.BELUM_BAYAR,
-                    catatan="Digenerate massal"
+                    catatan="Digenerate massal",
+                    sync_status=False
                 ))
                 created_count += 1
             else:
