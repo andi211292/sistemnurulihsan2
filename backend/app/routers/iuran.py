@@ -320,7 +320,7 @@ def laporan_bulanan(
 
     # Kita harus list student dari DB langsung.
     # Bagi yang belum di-generate tagihannya, tidak akan masuk (karena sistem invoice).
-    all_students_map = {s.student_id: s for s in db.query(models.Student).filter(models.Student.is_active == True).all()}
+    all_students_map = {s.student_id: s for s in db.query(models.Student).all()}
     
     result = []
     for fee in active_fees:
