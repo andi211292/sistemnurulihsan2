@@ -586,7 +586,9 @@ async def sync_data_to_cloud():
     while True:
         try:
             # Run the heavy synchronous DB queries in a dedicated thread to free up the FastAPI event loop
-            await asyncio.to_thread(_sync_synchronously)
+            # Fallback for Python < 3.9 since asyncio.to_thread is not available natively
+            loop = asyncio.get_running_loop()
+            await loop.run_in_executor(None, _sync_synchronously)
         except Exception as e:
             logger.error(f"Thread error: {e}")
             
