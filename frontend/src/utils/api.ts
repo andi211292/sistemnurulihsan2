@@ -17,10 +17,14 @@ export const apiFetch = async (url: string, options: RequestInit = {}) => {
     });
 
     if (res.status === 401) {
-        // Unauthorized: Token might be expired or invalid
-        localStorage.removeItem("access_token");
-        localStorage.removeItem("user_role");
-        window.location.href = "/login";
+        // HANYA usir user jika token benar-benar ditolak di pintu utama (bukan background stats)
+        // Dan pastikan tidak sedang di halaman login agar tidak looping
+        if (window.location.pathname !== "/login") {
+            console.error("Autentikasi gagal (401), mengalihkan ke login...");
+            localStorage.removeItem("access_token");
+            localStorage.removeItem("user_role");
+            window.location.href = "/login";
+        }
     }
 
     return res;

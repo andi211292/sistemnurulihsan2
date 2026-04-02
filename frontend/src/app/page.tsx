@@ -18,14 +18,14 @@ export default function Home() {
     // Fetch basic stats
     const fetchStats = async (role: string) => {
       try {
-        // Get total students (All roles can see this usually)
-        const resStudents = await apiFetch(`/api/students/`);
+        // Get total students (No trailing slash)
+        const resStudents = await apiFetch(`/api/students`);
         if (resStudents.ok) {
           const data = await resStudents.json();
           setTotalStudents(data.length);
         }
 
-        // Get empty classes (Only for relevant roles)
+        // Get empty classes
         if (role === "SUPER_ADMIN" || role === "PENGURUS_SEKOLAH" || role === "PENGURUS_SANTRI") {
           const resEmpty = await apiFetch(`/api/academic/empty-classes`);
           if (resEmpty.ok) {
@@ -36,11 +36,11 @@ export default function Home() {
           }
         }
 
-        // Get expenses for current month (Only for Super Admin or Kasir)
+        // Get expenses for current month (No trailing slash)
         if (role === "SUPER_ADMIN" || role.startsWith("KASIR")) {
           const currentMonth = new Date().getMonth() + 1;
           const currentYear = new Date().getFullYear();
-          const resExpense = await apiFetch(`/api/keuangan/pengeluaran/?month=${currentMonth}&year=${currentYear}`);
+          const resExpense = await apiFetch(`/api/keuangan/pengeluaran?month=${currentMonth}&year=${currentYear}`);
           if(resExpense.ok) {
              const expData = await resExpense.json();
              const total = expData.reduce((sum: number, item: any) => sum + item.amount, 0);
@@ -48,7 +48,7 @@ export default function Home() {
           }
         }
       } catch (e) {
-        console.error("Dashboard stats background check failed (expected for restricted roles)", e);
+        console.error("Dashboard stats background check failed", e);
       }
     };
 
