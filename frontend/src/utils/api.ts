@@ -1,5 +1,9 @@
 export const apiFetch = async (url: string, options: RequestInit = {}) => {
     const token = localStorage.getItem("access_token");
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
+    
+    // Pastikan URL selalu menggunakan Base URL jika tidak dimulai dengan http
+    const fullUrl = url.startsWith("http") ? url : `${baseUrl}${url}`;
 
     const headers = new Headers(options.headers || {});
     if (token) {

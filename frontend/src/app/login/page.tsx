@@ -22,7 +22,8 @@ export default function LoginPage() {
             formData.append("username", username);
             formData.append("password", password);
 
-            const res = await fetch(`/api/auth/login`, {
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
+            const res = await fetch(`${baseUrl}/api/auth/login`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/x-www-form-urlencoded",
