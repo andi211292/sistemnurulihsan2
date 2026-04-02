@@ -67,7 +67,7 @@ export default function LoginPage() {
                         Masuk ke Sistem
                     </h2>
                     <p className="mt-2 text-center text-sm text-gray-600">
-                        Pesantren Tahfidz Nurul Ihsan
+                        Pesantren Nurul Ihsan
                     </p>
                 </div>
 
