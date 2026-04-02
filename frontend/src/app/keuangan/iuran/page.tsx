@@ -413,11 +413,11 @@ export default function ManajemenIuranPage() {
                                         Bayar Iuran Dimuka (Prepayment)
                                     </h4>
                                     <div className="flex gap-2 items-center flex-wrap sm:flex-nowrap">
-                                        <select id="customFee" className="flex-1 p-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none">
+                                        <select id="customFee" className="flex-1 p-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none cursor-pointer">
                                             <option value="">-- Pilih Iuran --</option>
                                             {activeFees.map(f => <option key={f.id} value={f.id}>{f.nama_iuran} (Rp {f.nominal.toLocaleString("id-ID")})</option>)}
                                         </select>
-                                        <input id="customPeriode" type="text" placeholder="Periode (Cth: 2026-05)" className="w-32 p-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-center font-medium outline-none" />
+                                        <input id="customPeriode" type="month" className="w-40 p-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm text-center font-medium outline-none cursor-pointer hover:bg-gray-100" />
                                         <button type="button" onClick={addCustomToCart} className="px-4 py-2.5 bg-blue-600 text-white font-bold rounded-lg text-sm hover:bg-blue-700 shadow-sm transition whitespace-nowrap">
                                             Buat
                                         </button>
