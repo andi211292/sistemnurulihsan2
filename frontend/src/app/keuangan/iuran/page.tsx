@@ -96,7 +96,7 @@ export default function ManajemenIuranPage() {
             if (feesRes.ok) setFeeDefs(await feesRes.json());
             if (studentsRes.ok) {
                 const data = await studentsRes.json();
-                setStudents(data.filter((s: Student) => s.is_active));
+                setStudents(data);
             }
         } catch (err) {
             console.error(err);

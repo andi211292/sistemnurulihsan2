@@ -37,6 +37,30 @@ async def sync_data_to_cloud():
             cloud_db = CloudSessionLocal()
             
             try:
+                # ====== 00. Sync Users (Admin/Staff) ======
+                try:
+                    users_to_sync = local_db.query(models.User).all()
+                    if users_to_sync:
+                        for user in users_to_sync:
+                            user_dict = {
+                                "user_id": user.user_id,
+                                "username": user.username,
+                                "email": user.email,
+                                "role": user.role.value if hasattr(user.role, 'value') else user.role,
+                                "is_active": user.is_active,
+                                "password_hash": "CLOUD_SYNCED_USER" # Do not sync passwords for security
+                            }
+                            stmt = pg_insert(models.User).values(user_dict)
+                            stmt = stmt.on_conflict_do_update(
+                                index_elements=['user_id'],
+                                set_={k: v for k, v in user_dict.items() if k != 'password_hash'}
+                            )
+                            cloud_db.execute(stmt)
+                        cloud_db.commit()
+                except Exception as e:
+                    cloud_db.rollback()
+                    logger.error(f"Error syncing Users: {e}")
+
                 # ====== 0. Sync Guardians (Wali Santri) ======
                 try:
                     guardians_to_sync = local_db.query(models.Guardian).all()
