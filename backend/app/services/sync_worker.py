@@ -24,7 +24,7 @@ async def sync_data_to_cloud():
 
     logger.info(f"[{datetime.now()}] Cloud Sync Worker berjalan di latar belakang (Setiap {SYNC_INTERVAL_SECONDS} detik).")
 
-    while True:
+    def _sync_synchronously():
         try:
             # Check mapping of cloud engine models periodically inside loop to avoid hanging startup
             try:
@@ -582,7 +582,14 @@ async def sync_data_to_cloud():
              logger.warning(f"[{datetime.now()}] Gagal terhubung ke Cloud PostgreSQL (Internet mati/URL salah). Mencoba lagi nanti...")
         except Exception as e:
              logger.error(f"[{datetime.now()}] Terjadi kegagalan saat Sinkronisasi Cloud: {e}. Worker akan berjalan lagi dalam {SYNC_INTERVAL_SECONDS} detik.")
-        
+
+    while True:
+        try:
+            # Run the heavy synchronous DB queries in a dedicated thread to free up the FastAPI event loop
+            await asyncio.to_thread(_sync_synchronously)
+        except Exception as e:
+            logger.error(f"Thread error: {e}")
+            
         # Suspend worker and wait 1 minute before resuming loop
         await asyncio.sleep(SYNC_INTERVAL_SECONDS)
 

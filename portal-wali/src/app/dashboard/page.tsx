@@ -852,8 +852,8 @@ export default function DashboardPage() {
                         todaySpend={todaySpend} 
                         limit={student?.batas_jajan_harian || 15000} 
                         balance={wallet?.balance || 0} 
-                        nUnpaid={billings.filter(b => b.status !== 'PAID').length} 
-                        onSyahriyahClick={() => setCurrentView("syahriyah")}
+                        nUnpaid={feeStatus.filter(b => b.status !== 'LUNAS').length} 
+                        onIuranClick={() => setCurrentView("iuran")}
                     />
                     {renderDashboard()}
                     <TahfidzModule data={tahfidz} />
@@ -945,7 +945,7 @@ function ViewHeader({ title, onBack }: any) {
     );
 }
 
-function SummaryModule({ todaySpend, limit, balance, nUnpaid, onSyahriyahClick }: any) {
+function SummaryModule({ todaySpend, limit, balance, nUnpaid, onIuranClick }: any) {
     return (
         <div className="bg-white rounded-[2.5rem] shadow-xl border border-gray-100 p-6">
             <div className="grid grid-cols-2 gap-4">
@@ -960,9 +960,9 @@ function SummaryModule({ todaySpend, limit, balance, nUnpaid, onSyahriyahClick }
                     <p className="text-[9px] font-bold text-emerald-700 mt-2">Jajan Hari Ini: {Math.round(todaySpend/limit * 100)}%</p>
                 </div>
                 <div 
-                    onClick={onSyahriyahClick}
+                    onClick={onIuranClick}
                     className={`rounded-3xl p-5 border cursor-pointer hover:shadow-md transition-shadow active:scale-95 ${nUnpaid > 0 ? 'bg-red-50 border-red-100' : 'bg-blue-50 border-blue-100'}`}>
-                    <p className={`text-[10px] font-black uppercase tracking-widest mb-1.5 opacity-60 ${nUnpaid > 0 ? 'text-red-800' : 'text-blue-800'}`}>Syahriyah</p>
+                    <p className={`text-[10px] font-black uppercase tracking-widest mb-1.5 opacity-60 ${nUnpaid > 0 ? 'text-red-800' : 'text-blue-800'}`}>Iuran Bulanan</p>
                     <p className={`text-xl font-black tracking-tighter ${nUnpaid > 0 ? 'text-red-950' : 'text-blue-950'}`}>
                         {nUnpaid > 0 ? `${nUnpaid} Tunggakan` : 'Lunas ✅'}
                     </p>

@@ -205,7 +205,8 @@ def generate_mass_invoices(
     Metode ini Idempotent (jika tagihan sudah ada di periode itu, akan diskip).
     """
     active_fees = db.query(models.FeeDefinition).filter(models.FeeDefinition.is_active == True).all()
-    active_students = db.query(models.Student).filter(models.Student.is_active == True).all()
+    # Student model doesn't have is_active, so query all students for now
+    active_students = db.query(models.Student).all()
 
     created_count = 0
     skipped_count = 0
