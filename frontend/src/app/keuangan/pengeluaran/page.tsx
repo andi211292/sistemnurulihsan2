@@ -160,17 +160,17 @@ export default function PengeluaranPage() {
     const totalExpenseAmount = expenses.reduce((sum, item) => sum + item.amount, 0);
 
     return (
-        <div className="p-8 max-w-7xl mx-auto space-y-6">
-            <div className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+        <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-4 sm:space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-gray-100 gap-4 sm:gap-0">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-800">💸 Pengeluaran Kas</h1>
-                    <p className="text-gray-500 mt-1">Catat dan pantau beban operasional bulanan/harian pesantren</p>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">💸 Pengeluaran Kas</h1>
+                    <p className="text-sm sm:text-base text-gray-500 mt-1">Catat dan pantau beban operasional bulanan/harian pesantren</p>
                 </div>
-                <div className="flex gap-4">
+                <div className="flex flex-row w-full sm:w-auto gap-3 sm:gap-4">
                     <select
                         value={filterMonth}
                         onChange={(e) => setFilterMonth(Number(e.target.value))}
-                        className="p-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+                        className="flex-1 sm:flex-none p-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
                     >
                         {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
                             <option key={m} value={m}>Bulan {m}</option>
@@ -179,7 +179,7 @@ export default function PengeluaranPage() {
                     <select
                         value={filterYear}
                         onChange={(e) => setFilterYear(Number(e.target.value))}
-                        className="p-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+                        className="flex-1 sm:flex-none p-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
                     >
                         {[currentYear - 1, currentYear, currentYear + 1].map(y => (
                             <option key={y} value={y}>{y}</option>
@@ -189,13 +189,13 @@ export default function PengeluaranPage() {
             </div>
 
             {/* STATS */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl p-6 text-white shadow-lg shadow-red-500/30">
-                    <h3 className="text-red-100 mb-1">Total Kas Keluar (Bulan Ini)</h3>
-                    <div className="text-4xl font-bold">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+                <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl p-5 sm:p-6 text-white shadow-lg shadow-red-500/30">
+                    <h3 className="text-red-100 text-sm sm:text-base mb-1">Total Kas Keluar (Bulan Ini)</h3>
+                    <div className="text-3xl sm:text-4xl font-bold truncate">
                         Rp {totalExpenseAmount.toLocaleString('id-ID')}
                     </div>
-                    <div className="mt-4 text-sm text-red-100 flex items-center">
+                    <div className="mt-4 text-xs sm:text-sm text-red-100 flex items-center">
                         <span className="material-icons text-sm mr-1">trending_up</span> Beban operasional dicatat
                     </div>
                 </div>
@@ -203,8 +203,8 @@ export default function PengeluaranPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Form Input Kas Keluar */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 h-fit">
-                    <div className="flex justify-between items-center mb-6">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 sm:p-6 h-fit">
+                    <div className="flex justify-between items-center mb-5 sm:mb-6">
                         <h2 className="text-xl font-bold text-gray-800">Catat Pengeluaran</h2>
                         <button 
                             onClick={() => setShowCategoryModal(true)}
@@ -275,7 +275,7 @@ export default function PengeluaranPage() {
 
                 {/* Tabel Riwayat */}
                 <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                    <div className="p-5 sm:p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
                         <h2 className="text-lg font-bold text-gray-800">Riwayat Pengeluaran</h2>
                     </div>
                     {isLoading ? (
