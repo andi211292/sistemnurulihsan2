@@ -451,15 +451,15 @@ export default function ManajemenIuranPage() {
 
                     {/* RIGHT: KASIR SUMMARY */}
                     <div className="lg:col-span-2 space-y-5">
-                        <div className="bg-gray-900 text-white rounded-3xl shadow-xl p-6 sticky top-6 border border-gray-800">
-                            <h3 className="font-black text-gray-300 mb-6 flex items-center justify-between uppercase tracking-wider text-sm">
+                        <div className="bg-gray-900 text-white rounded-3xl shadow-xl p-4 sm:p-6 sticky top-6 border border-gray-800">
+                            <h3 className="font-black text-gray-300 mb-4 sm:mb-6 flex items-center justify-between uppercase tracking-wider text-xs sm:text-sm">
                                 <span>Total Diterima Kasir</span>
                                 <span className="material-icons text-emerald-400">payments</span>
                             </h3>
 
-                            <div className="text-center bg-gray-800 rounded-2xl p-6 mb-6 shadow-inner border border-gray-700">
+                            <div className="text-center bg-gray-800 rounded-2xl p-4 sm:p-6 mb-4 sm:mb-6 shadow-inner border border-gray-700">
                                 <p className="text-xs text-gray-400 mb-1 font-bold tracking-widest">TOTAL TAGIHAN DIPILIH</p>
-                                <p className="text-4xl lg:text-5xl font-black text-emerald-400 tabular-nums tracking-tighter">
+                                <p className="text-3xl sm:text-4xl lg:text-5xl font-black text-emerald-400 tabular-nums tracking-tighter truncate">
                                     {totalChecked.toLocaleString("id-ID")}
                                 </p>
                             </div>
