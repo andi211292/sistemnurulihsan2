@@ -22,7 +22,13 @@ export default function LoginPage() {
             formData.append("username", username);
             formData.append("password", password);
 
-            const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
+            const getBaseUrl = () => {
+                if (typeof window !== "undefined") {
+                    return `${window.location.protocol}//${window.location.hostname}:8000`;
+                }
+                return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+            };
+            const baseUrl = getBaseUrl();
             const res = await fetch(`${baseUrl}/api/auth/login`, {
                 method: "POST",
                 headers: {

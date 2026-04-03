@@ -1,6 +1,12 @@
 export const apiFetch = async (url: string, options: RequestInit = {}) => {
     const token = localStorage.getItem("access_token");
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "";
+    const getBaseUrl = () => {
+        if (typeof window !== "undefined") {
+            return `${window.location.protocol}//${window.location.hostname}:8000`;
+        }
+        return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    };
+    const baseUrl = getBaseUrl();
     
     // Pastikan URL selalu menggunakan Base URL jika tidak dimulai dengan http
     const fullUrl = url.startsWith("http") ? url : `${baseUrl}${url}`;
