@@ -20,12 +20,17 @@ interface MedicalRecordDetail {
 interface StudentRef {
     student_id: number;
     full_name: string;
+    nis: string;
 }
 
 export default function KesehatanPage() {
     const [records, setRecords] = useState<MedicalRecordDetail[]>([]);
     const [students, setStudents] = useState<StudentRef[]>([]);
     const [isSaving, setIsSaving] = useState(false);
+
+    // Search state
+    const [sSearch, setSSearch] = useState("");
+    const [showSResults, setShowSResults] = useState(false);
 
     // Form states
     const [form, setForm] = useState({
@@ -91,6 +96,8 @@ export default function KesehatanPage() {
             }
         } finally {
             setIsSaving(false);
+            setSSearch("");
+            setShowSResults(false);
         }
     };
 
@@ -155,12 +162,59 @@ export default function KesehatanPage() {
                     </h2>
 
                     <form onSubmit={submitNewRecord} className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Santri Sakit</label>
-                            <select required value={form.student_id} onChange={e => setForm({ ...form, student_id: e.target.value })} className="w-full px-3 py-2 border rounded-lg bg-gray-50">
-                                <option value="">- Pilih Santri -</option>
-                                {students.map(s => <option key={s.student_id} value={s.student_id}>{s.full_name}</option>)}
-                            </select>
+                        <div className="relative">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Cari Santri (Nama / NIS)</label>
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    placeholder="Ketik nama atau NIS..."
+                                    value={sSearch}
+                                    onChange={(e) => {
+                                        setSSearch(e.target.value);
+                                        setShowSResults(true);
+                                    }}
+                                    onFocus={() => setShowSResults(true)}
+                                    className="w-full px-3 py-2 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-red-500 outline-none"
+                                />
+                                {form.student_id && (
+                                    <div className="absolute right-3 top-2.5 text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold">
+                                        ID: {form.student_id}
+                                    </div>
+                                )}
+                            </div>
+
+                            {showSResults && sSearch && (
+                                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                    {students
+                                        .filter(s =>
+                                            s.full_name.toLowerCase().includes(sSearch.toLowerCase()) ||
+                                            s.nis.toLowerCase().includes(sSearch.toLowerCase())
+                                        )
+                                        .slice(0, 10)
+                                        .map(s => (
+                                            <button
+                                                key={s.student_id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setForm({ ...form, student_id: s.student_id.toString() });
+                                                    setSSearch(s.full_name);
+                                                    setShowSResults(false);
+                                                }}
+                                                className="w-full text-left px-4 py-2 hover:bg-red-50 flex justify-between items-center border-b border-gray-50 last:border-0"
+                                            >
+                                                <span className="font-medium text-gray-800">{s.full_name}</span>
+                                                <span className="text-xs text-gray-400">NIS: {s.nis}</span>
+                                            </button>
+                                        ))
+                                    }
+                                    {students.filter(s =>
+                                        s.full_name.toLowerCase().includes(sSearch.toLowerCase()) ||
+                                        s.nis.toLowerCase().includes(sSearch.toLowerCase())
+                                    ).length === 0 && (
+                                        <div className="p-4 text-center text-gray-500 text-sm italic">Santri tidak ditemukan</div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">Keluhan Utama</label>
@@ -196,8 +250,9 @@ export default function KesehatanPage() {
                                         <div className="flex-1">
                                             <div className="flex justify-between items-start">
                                                 <div>
-                                                    <h3 className="font-bold text-gray-900 text-lg">{r.student_name}</h3>
-                                                    <p className="text-xs text-gray-500">{new Date(r.timestamp).toLocaleString("id-ID")}</p>
+                                                    <h3 className="font-bold text-gray-900 text-lg leading-tight">{r.student_name}</h3>
+                                                    <div className="text-[10px] text-gray-400 font-medium mb-1">NIS: {students.find(s => s.student_id === r.student_id)?.nis || "-"}</div>
+                                                    <p className="text-[10px] text-gray-500">{new Date(r.timestamp).toLocaleString("id-ID")}</p>
                                                 </div>
                                                 <div className="flex gap-2">
                                                     {r.is_recovered && (
