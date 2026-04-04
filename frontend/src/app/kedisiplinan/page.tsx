@@ -28,6 +28,7 @@ interface StudentViolation {
 interface StudentRef {
     student_id: number;
     full_name: string;
+    nis: string;
 }
 
 export default function KedisiplinanPage() {
@@ -42,6 +43,12 @@ export default function KedisiplinanPage() {
     const [violationForm, setViolationForm] = useState({ student_id: "", violation_date: "", violation_type: "", punishment: "", points: 10 });
     const [isSaving, setIsSaving] = useState(false);
     const [userRole, setUserRole] = useState("SUPER_ADMIN");
+
+    // Search state
+    const [vSearch, setVSearch] = useState("");
+    const [lSearch, setLSearch] = useState("");
+    const [showVResults, setShowVResults] = useState(false);
+    const [showLResults, setShowLResults] = useState(false);
 
     const fetchData = async () => {
         try {
@@ -104,6 +111,8 @@ export default function KedisiplinanPage() {
             }
         } finally {
             setIsSaving(false);
+            setLSearch("");
+            setShowLResults(false);
         }
     };
 
@@ -138,6 +147,8 @@ export default function KedisiplinanPage() {
             }
         } finally {
             setIsSaving(false);
+            setVSearch("");
+            setShowVResults(false);
         }
     };
 
@@ -177,12 +188,59 @@ export default function KedisiplinanPage() {
 
                     {activeTab === "violation" ? (
                         <form onSubmit={submitViolation} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Santri</label>
-                                <select required value={violationForm.student_id} onChange={e => setViolationForm({ ...violationForm, student_id: e.target.value })} className="w-full px-3 py-2 border rounded-lg bg-gray-50">
-                                    <option value="">- Pilih Santri -</option>
-                                    {students.map(s => <option key={s.student_id} value={s.student_id}>{s.full_name}</option>)}
-                                </select>
+                            <div className="relative">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Cari Santri (Nama / NIS)</label>
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        placeholder="Ketik nama atau NIS..."
+                                        value={vSearch}
+                                        onChange={(e) => {
+                                            setVSearch(e.target.value);
+                                            setShowVResults(true);
+                                        }}
+                                        onFocus={() => setShowVResults(true)}
+                                        className="w-full px-3 py-2 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-sky-500 outline-none"
+                                    />
+                                    {violationForm.student_id && (
+                                        <div className="absolute right-3 top-2.5 text-xs bg-sky-100 text-sky-700 px-2 py-0.5 rounded-full font-bold">
+                                            ID: {violationForm.student_id}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {showVResults && vSearch && (
+                                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                        {students
+                                            .filter(s =>
+                                                s.full_name.toLowerCase().includes(vSearch.toLowerCase()) ||
+                                                s.nis.toLowerCase().includes(vSearch.toLowerCase())
+                                            )
+                                            .slice(0, 10)
+                                            .map(s => (
+                                                <button
+                                                    key={s.student_id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setViolationForm({ ...violationForm, student_id: s.student_id.toString() });
+                                                        setVSearch(s.full_name);
+                                                        setShowVResults(false);
+                                                    }}
+                                                    className="w-full text-left px-4 py-2 hover:bg-sky-50 flex justify-between items-center border-b border-gray-50 last:border-0"
+                                                >
+                                                    <span className="font-medium text-gray-800">{s.full_name}</span>
+                                                    <span className="text-xs text-gray-400">NIS: {s.nis}</span>
+                                                </button>
+                                            ))
+                                        }
+                                        {students.filter(s =>
+                                            s.full_name.toLowerCase().includes(vSearch.toLowerCase()) ||
+                                            s.nis.toLowerCase().includes(vSearch.toLowerCase())
+                                        ).length === 0 && (
+                                            <div className="p-4 text-center text-gray-500 text-sm italic">Santri tidak ditemukan</div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
@@ -206,12 +264,59 @@ export default function KedisiplinanPage() {
                         </form>
                     ) : (
                         <form onSubmit={submitLeave} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Santri yang Izin</label>
-                                <select required value={leaveForm.student_id} onChange={e => setLeaveForm({ ...leaveForm, student_id: e.target.value })} className="w-full px-3 py-2 border rounded-lg bg-gray-50">
-                                    <option value="">- Pilih Santri -</option>
-                                    {students.map(s => <option key={s.student_id} value={s.student_id}>{s.full_name}</option>)}
-                                </select>
+                            <div className="relative">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Cari Santri (Nama / NIS)</label>
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        placeholder="Ketik nama atau NIS..."
+                                        value={lSearch}
+                                        onChange={(e) => {
+                                            setLSearch(e.target.value);
+                                            setShowLResults(true);
+                                        }}
+                                        onFocus={() => setShowLResults(true)}
+                                        className="w-full px-3 py-2 border rounded-lg bg-gray-50 focus:ring-2 focus:ring-emerald-500 outline-none"
+                                    />
+                                    {leaveForm.student_id && (
+                                        <div className="absolute right-3 top-2.5 text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">
+                                            ID: {leaveForm.student_id}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {showLResults && lSearch && (
+                                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                        {students
+                                            .filter(s =>
+                                                s.full_name.toLowerCase().includes(lSearch.toLowerCase()) ||
+                                                s.nis.toLowerCase().includes(lSearch.toLowerCase())
+                                            )
+                                            .slice(0, 10)
+                                            .map(s => (
+                                                <button
+                                                    key={s.student_id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setLeaveForm({ ...leaveForm, student_id: s.student_id.toString() });
+                                                        setLSearch(s.full_name);
+                                                        setShowLResults(false);
+                                                    }}
+                                                    className="w-full text-left px-4 py-2 hover:bg-emerald-50 flex justify-between items-center border-b border-gray-50 last:border-0"
+                                                >
+                                                    <span className="font-medium text-gray-800">{s.full_name}</span>
+                                                    <span className="text-xs text-gray-400">NIS: {s.nis}</span>
+                                                </button>
+                                            ))
+                                        }
+                                        {students.filter(s =>
+                                            s.full_name.toLowerCase().includes(lSearch.toLowerCase()) ||
+                                            s.nis.toLowerCase().includes(lSearch.toLowerCase())
+                                        ).length === 0 && (
+                                            <div className="p-4 text-center text-gray-500 text-sm italic">Santri tidak ditemukan</div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Alasan</label>
@@ -290,44 +395,56 @@ export default function KedisiplinanPage() {
                                 )}
                             </thead>
                             <tbody className="divide-y divide-gray-100">
-                                {activeTab === "violation" && violations.map(v => (
-                                    <tr key={v.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-3 font-medium text-sky-800">{students.find(s => s.student_id === v.student_id)?.full_name || `Santri #${v.student_id}`}</td>
-                                        <td className="px-6 py-3 text-red-600 font-medium">{v.violation_type}</td>
-                                        <td className="px-6 py-3 text-gray-500">{v.violation_date}</td>
-                                        <td className="px-6 py-3">{v.punishment}</td>
-                                        <td className="px-6 py-3 text-center text-red-700 font-bold">-{v.points}</td>
-                                    </tr>
-                                ))}
-                                {activeTab === "leave" && leaves.map(l => (
-                                    <tr key={l.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-3 font-medium text-emerald-800">{students.find(s => s.student_id === l.student_id)?.full_name || `Santri #${l.student_id}`}</td>
-                                        <td className="px-6 py-3 text-gray-500">
-                                            {l.start_date} <span className="text-xs text-gray-400 mx-1">s/d</span> {l.end_date}
-                                            {l.reason === "IZIN_KELUAR" && (
-                                                <div className="text-xs mt-1 font-semibold text-sky-600">Terjadwal: {l.start_time} - {l.end_time}</div>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-3 text-center">
-                                            <span className={`px-2 py-1 rounded-md text-xs font-semibold ${l.reason === "SAKIT" ? 'bg-orange-100 text-orange-700' : l.reason === "IZIN_KELUAR" ? 'bg-sky-100 text-sky-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                                                {l.reason.replace("_", " ")}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-3 max-w-[200px] truncate" title={l.notes || "-"}>{l.notes || "-"}</td>
-                                        <td className="px-6 py-3 text-center flex flex-col items-center justify-center gap-1">
-                                            {l.is_returned ? (
-                                                <span className="text-xs font-bold text-emerald-600 flex items-center justify-center"><svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg> Telah Kembali</span>
-                                            ) : (
-                                                <span className="text-xs font-bold text-orange-600">Berada di Luar Asrama</span>
-                                            )}
-                                            {!l.is_returned && (
-                                                <button onClick={() => markReturned(l.id)} className="px-2 py-1 mt-1 bg-white border border-gray-300 text-gray-700 text-xs rounded hover:bg-emerald-50 hover:text-emerald-700 transition-colors">
-                                                    Tandai Kembali
-                                                </button>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))}
+                                {activeTab === "violation" && violations.map(v => {
+                                    const student = students.find(s => s.student_id === v.student_id);
+                                    return (
+                                        <tr key={v.id} className="hover:bg-gray-50">
+                                            <td className="px-6 py-3">
+                                                <div className="font-medium text-sky-800">{student?.full_name || `Santri #${v.student_id}`}</div>
+                                                <div className="text-[10px] text-gray-400">NIS: {student?.nis || "-"}</div>
+                                            </td>
+                                            <td className="px-6 py-3 text-red-600 font-medium">{v.violation_type}</td>
+                                            <td className="px-6 py-3 text-gray-500">{v.violation_date}</td>
+                                            <td className="px-6 py-3">{v.punishment}</td>
+                                            <td className="px-6 py-3 text-center text-red-700 font-bold">-{v.points}</td>
+                                        </tr>
+                                    );
+                                })}
+                                {activeTab === "leave" && leaves.map(l => {
+                                    const student = students.find(s => s.student_id === l.student_id);
+                                    return (
+                                        <tr key={l.id} className="hover:bg-gray-50">
+                                            <td className="px-6 py-3">
+                                                <div className="font-medium text-emerald-800">{student?.full_name || `Santri #${l.student_id}`}</div>
+                                                <div className="text-[10px] text-gray-400">NIS: {student?.nis || "-"}</div>
+                                            </td>
+                                            <td className="px-6 py-3 text-gray-500">
+                                                {l.start_date} <span className="text-xs text-gray-400 mx-1">s/d</span> {l.end_date}
+                                                {l.reason === "IZIN_KELUAR" && (
+                                                    <div className="text-xs mt-1 font-semibold text-sky-600">Terjadwal: {l.start_time} - {l.end_time}</div>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-3 text-center">
+                                                <span className={`px-2 py-1 rounded-md text-xs font-semibold ${l.reason === "SAKIT" ? 'bg-orange-100 text-orange-700' : l.reason === "IZIN_KELUAR" ? 'bg-sky-100 text-sky-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                                                    {l.reason.replace("_", " ")}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-3 max-w-[200px] truncate" title={l.notes || "-"}>{l.notes || "-"}</td>
+                                            <td className="px-6 py-3 text-center flex flex-col items-center justify-center gap-1">
+                                                {l.is_returned ? (
+                                                    <span className="text-xs font-bold text-emerald-600 flex items-center justify-center"><svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg> Telah Kembali</span>
+                                                ) : (
+                                                    <span className="text-xs font-bold text-orange-600">Berada di Luar Asrama</span>
+                                                )}
+                                                {!l.is_returned && (
+                                                    <button onClick={() => markReturned(l.id)} className="px-2 py-1 mt-1 bg-white border border-gray-300 text-gray-700 text-xs rounded hover:bg-emerald-50 hover:text-emerald-700 transition-colors">
+                                                        Tandai Kembali
+                                                    </button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
 
                                 {(activeTab === "violation" && violations.length === 0) && (
                                     <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-400">Belum ada pelanggaran disiplin (Pondok aman terkedali).</td></tr>
