@@ -20,6 +20,14 @@ async def lifespan(app: FastAPI):
     # Startup: Launch Invoice Auto-Generator Worker (tanggal 10 tiap bulan)
     invoice_task = asyncio.create_task(invoice_worker.start_invoice_worker())
     
+    # Startup: Auto-migrate expenses table for gender scope if needed
+    from sqlalchemy import text
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE expenses ADD COLUMN gender_scope VARCHAR(10);"))
+    except Exception:
+        pass
+    
     yield
     # Shutdown: Cleanly cancel background tasks
     sync_task.cancel()

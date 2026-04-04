@@ -33,6 +33,8 @@ export default function PengeluaranPage() {
     const currentYear = new Date().getFullYear();
     const [filterMonth, setFilterMonth] = useState<number>(currentMonth);
     const [filterYear, setFilterYear] = useState<number>(currentYear);
+    const [userRole, setUserRole] = useState<string>("");
+    const [genderScope, setGenderScope] = useState<string>("ALL");
 
     // New Expense State
     const [newExpense, setNewExpense] = useState({
@@ -49,14 +51,27 @@ export default function PengeluaranPage() {
 
     useEffect(() => {
         const token = localStorage.getItem("access_token");
+        const role = localStorage.getItem("user_role") || "";
         if (!token) {
             router.push("/login");
             return;
         }
-        fetchData();
-    }, [filterMonth, filterYear]);
+        setUserRole(role);
+        
+        // Auto lock gender scope if Kasir khusus
+        let activeScope = genderScope;
+        if (role === "KASIR_SYAHRIYAH_PUTRA") {
+            activeScope = "PUTRA";
+            setGenderScope("PUTRA");
+        } else if (role === "KASIR_SYAHRIYAH_PUTRI") {
+            activeScope = "PUTRI";
+            setGenderScope("PUTRI");
+        }
+        
+        fetchData(activeScope);
+    }, [filterMonth, filterYear, genderScope]);
 
-    const fetchData = async () => {
+    const fetchData = async (scope = genderScope) => {
         setIsLoading(true);
         const token = localStorage.getItem("access_token");
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -72,7 +87,8 @@ export default function PengeluaranPage() {
             }
 
             // Fetch Expenses
-            const expRes = await fetch(`${apiUrl}/api/keuangan/pengeluaran/?month=${filterMonth}&year=${filterYear}`, {
+            const scopeQuery = scope !== "ALL" ? `&gender_scope=${scope}` : "";
+            const expRes = await fetch(`${apiUrl}/api/keuangan/pengeluaran/?month=${filterMonth}&year=${filterYear}${scopeQuery}`, {
                 headers: { "Authorization": `Bearer ${token}` }
             });
             if (expRes.ok) {
@@ -105,7 +121,8 @@ export default function PengeluaranPage() {
                     category_id: parseInt(newExpense.category_id),
                     amount: parseFloat(newExpense.amount),
                     expense_date: newExpense.expense_date,
-                    description: newExpense.description
+                    description: newExpense.description,
+                    gender_scope: genderScope === "ALL" ? null : genderScope
                 })
             });
 
@@ -166,7 +183,21 @@ export default function PengeluaranPage() {
                     <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">💸 Pengeluaran Kas</h1>
                     <p className="text-sm sm:text-base text-gray-500 mt-1">Catat dan pantau beban operasional bulanan/harian pesantren</p>
                 </div>
-                <div className="flex flex-row w-full sm:w-auto gap-3 sm:gap-4">
+                <div className="flex flex-row w-full sm:w-auto gap-3 sm:gap-4 flex-wrap">
+                    {/* Render Gender Filter only if not a specific Kasir */}
+                    {(userRole !== "KASIR_SYAHRIYAH_PUTRA" && userRole !== "KASIR_SYAHRIYAH_PUTRI") && (
+                        <div className="flex bg-gray-100 p-1 rounded-lg">
+                            {["ALL", "PUTRA", "PUTRI"].map(scope => (
+                                <button
+                                    key={scope}
+                                    onClick={() => setGenderScope(scope)}
+                                    className={`px-3 py-1.5 text-sm font-semibold rounded-md transition-all ${genderScope === scope ? "bg-white text-emerald-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                                >
+                                    {scope === "ALL" ? "Semua" : scope === "PUTRA" ? "👦 Putra" : "👧 Putri"}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                     <select
                         value={filterMonth}
                         onChange={(e) => setFilterMonth(Number(e.target.value))}

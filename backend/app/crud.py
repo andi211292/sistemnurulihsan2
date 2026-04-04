@@ -332,8 +332,11 @@ def create_expense_category(db: Session, category: schemas.ExpenseCategoryCreate
     db.refresh(db_category)
     return db_category
 
-def get_expenses(db: Session, month: Optional[int] = None, year: Optional[int] = None):
+def get_expenses(db: Session, month: Optional[int] = None, year: Optional[int] = None, gender_scope: Optional[str] = None):
     query = db.query(models.Expense)
+    
+    if gender_scope and gender_scope != "ALL":
+        query = query.filter(models.Expense.gender_scope == gender_scope)
     
     if month and year:
         from sqlalchemy import extract
@@ -355,6 +358,7 @@ def create_expense(db: Session, expense: schemas.ExpenseCreate, recorded_by_user
         amount=expense.amount,
         expense_date=expense.expense_date,
         description=expense.description,
+        gender_scope=expense.gender_scope,
         recorded_by_user_id=recorded_by_user_id
     )
     db.add(db_expense)

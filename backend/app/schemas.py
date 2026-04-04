@@ -401,6 +401,7 @@ class ExpenseBase(BaseModel):
     amount: float
     expense_date: date
     description: Optional[str] = None
+    gender_scope: Optional[GenderEnum] = None
 
 class ExpenseCreate(ExpenseBase):
     pass

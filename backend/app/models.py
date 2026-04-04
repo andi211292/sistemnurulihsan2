@@ -377,6 +377,7 @@ class Expense(Base):
     amount = Column(Float)
     expense_date = Column(Date)
     description = Column(String, nullable=True)
+    gender_scope = Column(SqlEnum(GenderEnum, name="gender_enum"), nullable=True, default=None)
     recorded_by_user_id = Column(Integer, ForeignKey("users.user_id"))
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     sync_status = Column(Boolean, default=False)

@@ -502,19 +502,34 @@ def create_expense_category(
 @router.get("/pengeluaran/", response_model=List[schemas.ExpenseResponse])
 def get_expenses(
     month: Optional[int] = None, 
-    year: Optional[int] = None, 
-    db: Session = Depends(get_db)
+    year: Optional[int] = None,
+    gender_scope: Optional[str] = None,
+    db: Session = Depends(get_db),
+    user_role: models.RoleEnum = Depends(require_role([models.RoleEnum.KASIR_KOP_PUSAT, models.RoleEnum.KASIR_KOP_LUAR, models.RoleEnum.KASIR_SYAHRIYAH_PUTRA, models.RoleEnum.KASIR_SYAHRIYAH_PUTRI, models.RoleEnum.SUPER_ADMIN]))
 ):
-    return crud.get_expenses(db, month=month, year=year)
+    if user_role == models.RoleEnum.KASIR_SYAHRIYAH_PUTRA:
+        gender_scope = "PUTRA"
+    elif user_role == models.RoleEnum.KASIR_SYAHRIYAH_PUTRI:
+        gender_scope = "PUTRI"
+    return crud.get_expenses(db, month=month, year=year, gender_scope=gender_scope)
 
 @router.post("/pengeluaran/", response_model=schemas.ExpenseResponse)
 def create_expense(
     expense: schemas.ExpenseCreate, 
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user_payload)
+    current_user: dict = Depends(get_current_user_payload),
+    user_role: models.RoleEnum = Depends(require_role([models.RoleEnum.KASIR_KOP_PUSAT, models.RoleEnum.KASIR_KOP_LUAR, models.RoleEnum.KASIR_SYAHRIYAH_PUTRA, models.RoleEnum.KASIR_SYAHRIYAH_PUTRI, models.RoleEnum.SUPER_ADMIN]))
 ):
     user_id = current_user.get("user_id")
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid token payload")
+        
+    if user_role == models.RoleEnum.KASIR_SYAHRIYAH_PUTRA:
+        if expense.gender_scope != "PUTRA":
+            raise HTTPException(status_code=403, detail="Akses Ditolak: Kasir Putra hanya mencatat PUTRA")
+            
+    if user_role == models.RoleEnum.KASIR_SYAHRIYAH_PUTRI:
+        if expense.gender_scope != "PUTRI":
+            raise HTTPException(status_code=403, detail="Akses Ditolak: Kasir Putri hanya mencatat PUTRI")
         
     return crud.create_expense(db, expense=expense, recorded_by_user_id=user_id)

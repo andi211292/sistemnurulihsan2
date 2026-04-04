@@ -39,7 +39,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
         { name: "🔧 Kelola Alat RFID", path: "/absensi/devices", allowed: ["SUPER_ADMIN"] },
         { name: "Jurnal Tahfidz", path: "/tahfidz", allowed: ["SUPER_ADMIN", "PENGURUS_SANTRI"] },
         { name: "Koperasi & E-Money", path: "/keuangan/emoney", allowed: ["SUPER_ADMIN", "KASIR_KOP_PUSAT", "KASIR_KOP_LUAR"] },
-        { name: "💸 Pengeluaran Kas", path: "/keuangan/pengeluaran", allowed: ["SUPER_ADMIN", "KASIR_KOP_PUSAT"] },
+        { name: "💸 Pengeluaran Kas", path: "/keuangan/pengeluaran", allowed: ["SUPER_ADMIN", "KASIR_KOP_PUSAT", "KASIR_SYAHRIYAH_PUTRA", "KASIR_SYAHRIYAH_PUTRI"] },
         { name: "📋 Manajemen Iuran", path: "/keuangan/iuran", allowed: ["SUPER_ADMIN", "KASIR_SYAHRIYAH_PUTRA", "KASIR_SYAHRIYAH_PUTRI"] },
         { name: "📊 Laporan Iuran", path: "/keuangan/iuran/laporan", allowed: ["SUPER_ADMIN", "KASIR_SYAHRIYAH_PUTRA", "KASIR_SYAHRIYAH_PUTRI"] },
         { name: "👨‍🏫 Data Guru", path: "/guru", allowed: ["SUPER_ADMIN", "PENGURUS_SEKOLAH"] },
