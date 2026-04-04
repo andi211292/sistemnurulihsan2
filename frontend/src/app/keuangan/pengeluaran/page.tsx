@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { apiFetch } from "@/utils/api";
 
 // --- INFER TYPES ---
 interface ExpenseCategory {
@@ -73,14 +74,10 @@ export default function PengeluaranPage() {
 
     const fetchData = async (scope = genderScope) => {
         setIsLoading(true);
-        const token = localStorage.getItem("access_token");
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
         try {
             // Fetch Categories
-            const catRes = await fetch(`${apiUrl}/api/keuangan/pengeluaran/kategori`, {
-                headers: { "Authorization": `Bearer ${token}` }
-            });
+            const catRes = await apiFetch(`/api/keuangan/pengeluaran/kategori`);
             if (catRes.ok) {
                 const catData = await catRes.json();
                 setCategories(catData);
@@ -88,9 +85,7 @@ export default function PengeluaranPage() {
 
             // Fetch Expenses
             const scopeQuery = scope !== "ALL" ? `&gender_scope=${scope}` : "";
-            const expRes = await fetch(`${apiUrl}/api/keuangan/pengeluaran/?month=${filterMonth}&year=${filterYear}${scopeQuery}`, {
-                headers: { "Authorization": `Bearer ${token}` }
-            });
+            const expRes = await apiFetch(`/api/keuangan/pengeluaran/?month=${filterMonth}&year=${filterYear}${scopeQuery}`);
             if (expRes.ok) {
                 const expData = await expRes.json();
                 setExpenses(expData);
@@ -107,16 +102,10 @@ export default function PengeluaranPage() {
         if (!newExpense.category_id || !newExpense.amount || !newExpense.expense_date) return;
 
         setIsSaving(true);
-        const token = localStorage.getItem("access_token");
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
         try {
-            const response = await fetch(`${apiUrl}/api/keuangan/pengeluaran/`, {
+            const response = await apiFetch(`/api/keuangan/pengeluaran/`, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
                 body: JSON.stringify({
                     category_id: parseInt(newExpense.category_id),
                     amount: parseFloat(newExpense.amount),
@@ -145,16 +134,10 @@ export default function PengeluaranPage() {
         e.preventDefault();
         if (!newCategoryName) return;
 
-        const token = localStorage.getItem("access_token");
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
         try {
-            const response = await fetch(`${apiUrl}/api/keuangan/pengeluaran/kategori`, {
+            const response = await apiFetch(`/api/keuangan/pengeluaran/kategori`, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
                 body: JSON.stringify({
                     name: newCategoryName,
                     frequency: newCategoryFrequency,
