@@ -69,6 +69,17 @@ export default function ManajemenIuranPage() {
     // Generate Tab State
     const [genPeriode, setGenPeriode] = useState(new Date().toISOString().slice(0, 7)); // e.g. 2026-03
     const [isGenerating, setIsGenerating] = useState(false);
+    const [genMode, setGenMode] = useState<"massal" | "personal">("massal");
+
+    // Per-Santri Generate State
+    const [genStudentSearch, setGenStudentSearch] = useState("");
+    const [genSelectedStudent, setGenSelectedStudent] = useState<Student | null>(null);
+    const [genShowResults, setGenShowResults] = useState(false);
+    const [genFeeId, setGenFeeId] = useState<number | "">("");
+    const [genFromMonth, setGenFromMonth] = useState(new Date().toISOString().slice(0, 7));
+    const [genToMonth, setGenToMonth] = useState(new Date().toISOString().slice(0, 7));
+    const [genCustomPeriode, setGenCustomPeriode] = useState(""); // for SEMESTER/TAHUNAN
+    const [genResult, setGenResult] = useState<{created: string[], skipped: string[], student_name: string, fee_name: string} | null>(null);
 
     // Modal Master State
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -268,6 +279,74 @@ export default function ManajemenIuranPage() {
             showToast("Gagal melakukan generate tagihan", false);
         }
     };
+
+    // Helper: build array of YYYY-MM from fromMonth to toMonth
+    const buildPeriodeLabels = (): string[] => {
+        const selectedFee = feeDefs.find(f => f.id === genFeeId);
+        if (!selectedFee) return [];
+
+        if (selectedFee.tipe_periode === "BULANAN") {
+            const result: string[] = [];
+            const from = new Date(genFromMonth + "-01");
+            const to = new Date(genToMonth + "-01");
+            if (from > to) return [];
+            const cursor = new Date(from);
+            while (cursor <= to) {
+                result.push(`${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}`);
+                cursor.setMonth(cursor.getMonth() + 1);
+            }
+            return result;
+        }
+        // SEMESTER/TAHUNAN/INSIDENTAL: pakai input manual
+        return genCustomPeriode.trim() ? [genCustomPeriode.trim()] : [];
+    };
+
+    const handleGenerateStudent = async () => {
+        if (!genSelectedStudent || genFeeId === "") {
+            return showToast("Pilih santri dan jenis iuran terlebih dahulu!", false);
+        }
+        const periodeLabels = buildPeriodeLabels();
+        if (periodeLabels.length === 0) {
+            return showToast("Periode tagihan tidak valid. Cek input periode!", false);
+        }
+
+        const selectedFee = feeDefs.find(f => f.id === genFeeId);
+        const konfirmasi = `Buat ${periodeLabels.length} tagihan:\n👤 ${genSelectedStudent.full_name}\n📋 ${selectedFee?.nama_iuran}\n🗓️ ${periodeLabels.join(", ")}\n\nLanjutkan?`;
+        if (!confirm(konfirmasi)) return;
+
+        setIsGenerating(true);
+        setGenResult(null);
+        try {
+            const res = await apiFetch("/api/iuran/generate/student", {
+                method: "POST",
+                body: JSON.stringify({
+                    student_id: genSelectedStudent.student_id,
+                    fee_definition_id: genFeeId,
+                    periode_labels: periodeLabels
+                })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setGenResult(data);
+                showToast(data.message);
+            } else {
+                const err = await res.json();
+                showToast(err.detail || "Gagal membuat tagihan", false);
+            }
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    const genFilteredStudents = genStudentSearch.length >= 2 ? students.filter(s => {
+        const matchG = !genderFilter || s.gender?.toUpperCase() === genderFilter;
+        const matchS = s.full_name.toLowerCase().includes(genStudentSearch.toLowerCase()) ||
+                       s.nis.includes(genStudentSearch);
+        return matchG && matchS;
+    }).slice(0, 10) : [];
+
+    const selectedFeeForGen = feeDefs.find(f => f.id === genFeeId);
+    const previewPeriodes = buildPeriodeLabels();
 
     return (
         <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -488,34 +567,230 @@ export default function ManajemenIuranPage() {
                 </div>
             )}
 
-            {/* ==== TAB GENERATE MASSAL ==== */}
+            {/* ==== TAB GENERATE ==== */}
             {activeTab === "generate" && (
-                <div className="max-w-2xl mx-auto">
-                    <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 text-center space-y-6">
-                        <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <span className="material-icons text-4xl">autorenew</span>
-                        </div>
-                        <div>
-                            <h2 className="text-2xl font-black text-gray-800">Robot Pembuat Tagihan</h2>
-                            <p className="text-gray-500 mt-2 text-sm max-w-sm mx-auto">Buat tagihan (invoice) otomatis untuk semua santri yang berstatus aktif dalam 1 klik.</p>
-                        </div>
-
-                        <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100 text-left max-w-sm mx-auto">
-                            <label className="block text-sm font-bold text-gray-700 mb-2">Pilih Periode Tagihan</label>
-                            <input type="month" value={genPeriode} onChange={e => setGenPeriode(e.target.value)}
-                                className="w-full p-4 bg-white border border-gray-200 rounded-xl font-bold text-lg text-gray-800 text-center focus:ring-2 focus:ring-blue-500 outline-none" />
-                        </div>
-
-                        <div className="bg-yellow-50 text-yellow-800 rounded-xl p-4 text-xs font-medium text-left">
-                            <span className="material-icons text-sm align-text-bottom mr-1 text-yellow-600">info</span>
-                            Sistem ini dirancang <strong>Idempotent</strong>. Jika ada santri yang sudah bayar dimuka, atau tagihan bulan tersebut sudah dibuat sebelumnya, sistem otomatis akan melewatinya (TIDAK DOUBLE).
-                        </div>
-
-                        <button onClick={handleGenerate} disabled={isGenerating}
-                            className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black hover:bg-blue-700 shadow-md transition disabled:opacity-50">
-                            {isGenerating ? "MENGHITUNG & MEMBUAT TAGIHAN..." : "BUAT TAGIHAN MASSAL SEKARANG"}
+                <div className="space-y-5">
+                    {/* Mode Toggle */}
+                    <div className="flex gap-3 bg-gray-100 p-1 rounded-2xl w-fit">
+                        <button onClick={() => { setGenMode("massal"); setGenResult(null); }}
+                            className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${genMode === "massal" ? "bg-white shadow text-blue-700" : "text-gray-500 hover:text-gray-700"}`}>
+                            👥 Massal (Semua Santri)
+                        </button>
+                        <button onClick={() => { setGenMode("personal"); setGenResult(null); }}
+                            className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${genMode === "personal" ? "bg-white shadow text-emerald-700" : "text-gray-500 hover:text-gray-700"}`}>
+                            👤 Per-Santri (Individual)
                         </button>
                     </div>
+
+                    {/* ==== MODE MASSAL ==== */}
+                    {genMode === "massal" && (
+                        <div className="max-w-2xl">
+                            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 text-center space-y-6">
+                                <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <span className="material-icons text-4xl">autorenew</span>
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-black text-gray-800">Robot Pembuat Tagihan</h2>
+                                    <p className="text-gray-500 mt-2 text-sm max-w-sm mx-auto">Buat tagihan (invoice) otomatis untuk semua santri aktif dalam 1 klik.</p>
+                                </div>
+                                <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100 text-left max-w-sm mx-auto">
+                                    <label className="block text-sm font-bold text-gray-700 mb-2">Pilih Periode Tagihan</label>
+                                    <input type="month" value={genPeriode} onChange={e => setGenPeriode(e.target.value)}
+                                        className="w-full p-4 bg-white border border-gray-200 rounded-xl font-bold text-lg text-gray-800 text-center focus:ring-2 focus:ring-blue-500 outline-none" />
+                                </div>
+                                <div className="bg-yellow-50 text-yellow-800 rounded-xl p-4 text-xs font-medium text-left">
+                                    <span className="material-icons text-sm align-text-bottom mr-1 text-yellow-600">info</span>
+                                    Sistem ini dirancang <strong>Idempotent</strong>. Jika tagihan sudah ada, sistem otomatis melewatinya (TIDAK DOUBLE).
+                                </div>
+                                <button onClick={handleGenerate} disabled={isGenerating}
+                                    className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black hover:bg-blue-700 shadow-md transition disabled:opacity-50">
+                                    {isGenerating ? "MENGHITUNG & MEMBUAT TAGIHAN..." : "BUAT TAGIHAN MASSAL SEKARANG"}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ==== MODE PER-SANTRI ==== */}
+                    {genMode === "personal" && (
+                        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                            {/* LEFT: FORM */}
+                            <div className="lg:col-span-3 space-y-5">
+                                {/* STEP 1: PILIH SANTRI */}
+                                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                                    <h3 className="font-bold text-gray-700 mb-3 flex items-center gap-2">
+                                        <span className="w-6 h-6 rounded-full bg-emerald-600 text-white text-xs flex items-center justify-center font-bold">1</span>
+                                        Pilih Santri yang Dituju
+                                    </h3>
+                                    <input type="text" placeholder="🔍 Ketik nama atau NIS..."
+                                        value={genStudentSearch}
+                                        onChange={e => { setGenStudentSearch(e.target.value); if (genSelectedStudent) setGenSelectedStudent(null); setGenResult(null); }}
+                                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none text-sm mb-2" />
+
+                                    {genSelectedStudent ? (
+                                        <div className="flex items-center gap-4 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-4">
+                                            <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-white text-lg ${genSelectedStudent.gender === "PUTRI" ? "bg-pink-500" : "bg-blue-500"}`}>
+                                                {genSelectedStudent.full_name.charAt(0)}
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="font-bold text-gray-900">{genSelectedStudent.full_name}</p>
+                                                <p className="text-xs text-gray-600">{genSelectedStudent.nis} · Kls {genSelectedStudent.student_class} · {genSelectedStudent.dormitory}</p>
+                                            </div>
+                                            <button type="button" onClick={() => { setGenSelectedStudent(null); setGenStudentSearch(""); setGenResult(null); }} className="p-2 bg-white rounded-full text-gray-400 hover:text-red-500 shadow-sm transition">
+                                                <span className="material-icons">close</span>
+                                            </button>
+                                        </div>
+                                    ) : genStudentSearch.length >= 2 && (
+                                        <div className="border border-gray-200 rounded-xl overflow-hidden max-h-48 overflow-y-auto">
+                                            {genFilteredStudents.length === 0
+                                                ? <div className="p-4 text-center text-gray-400 text-sm">Santri tidak ditemukan</div>
+                                                : genFilteredStudents.map(s => (
+                                                    <button key={s.student_id} type="button"
+                                                        onClick={() => { setGenSelectedStudent(s); setGenStudentSearch(s.full_name); setGenResult(null); }}
+                                                        className="w-full text-left px-4 py-3 hover:bg-emerald-50 border-b border-gray-50 text-sm flex items-center gap-3 transition">
+                                                        <span className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${s.gender === "PUTRI" ? "bg-pink-400" : "bg-blue-400"}`}>
+                                                            {s.full_name.charAt(0)}
+                                                        </span>
+                                                        <div>
+                                                            <p className="font-bold text-gray-800">{s.full_name}</p>
+                                                            <p className="text-xs text-gray-400">{s.nis} · Kls {s.student_class}</p>
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* STEP 2: PILIH JENIS IURAN */}
+                                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                                    <h3 className="font-bold text-gray-700 mb-3 flex items-center gap-2">
+                                        <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs flex items-center justify-center font-bold">2</span>
+                                        Pilih Jenis Iuran
+                                    </h3>
+                                    <select value={genFeeId} onChange={e => { setGenFeeId(e.target.value ? parseInt(e.target.value) : ""); setGenResult(null); setGenCustomPeriode(""); }}
+                                        className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium outline-none">
+                                        <option value="">-- Pilih Iuran --</option>
+                                        {feeDefs.filter(f => f.is_active).map(f => (
+                                            <option key={f.id} value={f.id}>
+                                                {f.nama_iuran} — Rp {f.nominal.toLocaleString("id-ID")} ({f.tipe_periode})
+                                            </option>
+                                        ))}
+                                    </select>
+                                    {selectedFeeForGen && (
+                                        <div className="mt-2 flex items-center gap-2">
+                                            <span className={`text-xs font-bold px-3 py-1 rounded-full ${PERIODE_COLOR[selectedFeeForGen.tipe_periode]}`}>
+                                                {PERIODE_LABEL[selectedFeeForGen.tipe_periode]}
+                                            </span>
+                                            <span className="text-xs text-gray-500">Nominal: Rp {selectedFeeForGen.nominal.toLocaleString("id-ID")}</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* STEP 3: PILIH PERIODE */}
+                                {selectedFeeForGen && (
+                                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                                        <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2">
+                                            <span className="w-6 h-6 rounded-full bg-orange-500 text-white text-xs flex items-center justify-center font-bold">3</span>
+                                            Pilih Periode Tagihan
+                                        </h3>
+
+                                        {selectedFeeForGen.tipe_periode === "BULANAN" ? (
+                                            <div className="space-y-4">
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-gray-600 mb-1.5">DARI BULAN</label>
+                                                        <input type="month" value={genFromMonth} onChange={e => { setGenFromMonth(e.target.value); setGenResult(null); }}
+                                                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-800 text-center focus:ring-2 focus:ring-orange-400 outline-none" />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-gray-600 mb-1.5">SAMPAI BULAN</label>
+                                                        <input type="month" value={genToMonth} onChange={e => { setGenToMonth(e.target.value); setGenResult(null); }}
+                                                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-800 text-center focus:ring-2 focus:ring-orange-400 outline-none" />
+                                                    </div>
+                                                </div>
+                                                {previewPeriodes.length > 0 && (
+                                                    <div className="bg-orange-50 border border-orange-100 rounded-xl p-3 flex flex-wrap gap-2">
+                                                        <span className="text-xs font-bold text-orange-700 w-full mb-1">Preview {previewPeriodes.length} tagihan yang akan dibuat:</span>
+                                                        {previewPeriodes.map(p => (
+                                                            <span key={p} className="text-xs bg-white border border-orange-200 text-orange-700 font-bold px-3 py-1 rounded-full">{p}</span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {genFromMonth > genToMonth && (
+                                                    <p className="text-xs text-red-500 font-medium">⚠️ Bulan awal tidak boleh lebih dari bulan akhir</p>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-600 mb-1.5">
+                                                    LABEL PERIODE
+                                                    <span className="font-normal text-gray-400 ml-2">
+                                                        {selectedFeeForGen.tipe_periode === "SEMESTER" ? '(Contoh: 2026-S1 atau 2026-S2)' : selectedFeeForGen.tipe_periode === "TAHUNAN" ? '(Contoh: 2026)' : '(Contoh: Lebaran 2026)'}
+                                                    </span>
+                                                </label>
+                                                <input type="text" value={genCustomPeriode}
+                                                    onChange={e => { setGenCustomPeriode(e.target.value); setGenResult(null); }}
+                                                    placeholder={selectedFeeForGen.tipe_periode === "SEMESTER" ? "misal: 2026-S1" : selectedFeeForGen.tipe_periode === "TAHUNAN" ? "misal: 2026" : "misal: Lebaran 2026"}
+                                                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-800 focus:ring-2 focus:ring-orange-400 outline-none" />
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* RIGHT: SUMMARY & SUBMIT */}
+                            <div className="lg:col-span-2 space-y-5">
+                                <div className="bg-gray-900 text-white rounded-3xl shadow-xl p-6 sticky top-6">
+                                    <h3 className="font-black text-gray-300 mb-5 uppercase tracking-wider text-xs">Ringkasan Tagihan</h3>
+
+                                    <div className="space-y-3 mb-6">
+                                        <div className="bg-gray-800 rounded-xl p-4">
+                                            <p className="text-xs text-gray-400 mb-1">SANTRI</p>
+                                            <p className="font-bold text-white">{genSelectedStudent?.full_name || <span className="text-gray-500 italic">Belum dipilih</span>}</p>
+                                            {genSelectedStudent && <p className="text-xs text-gray-400">{genSelectedStudent.nis}</p>}
+                                        </div>
+                                        <div className="bg-gray-800 rounded-xl p-4">
+                                            <p className="text-xs text-gray-400 mb-1">JENIS IURAN</p>
+                                            <p className="font-bold text-white">{selectedFeeForGen?.nama_iuran || <span className="text-gray-500 italic">Belum dipilih</span>}</p>
+                                            {selectedFeeForGen && <p className="text-xs text-emerald-400 font-bold">Rp {selectedFeeForGen.nominal.toLocaleString("id-ID")} / {selectedFeeForGen.tipe_periode.toLowerCase()}</p>}
+                                        </div>
+                                        <div className="bg-gray-800 rounded-xl p-4">
+                                            <p className="text-xs text-gray-400 mb-1">JUMLAH TAGIHAN</p>
+                                            <p className="text-3xl font-black text-orange-400">{previewPeriodes.length} <span className="text-sm text-gray-400 font-normal">tagihan</span></p>
+                                            {previewPeriodes.length > 0 && selectedFeeForGen && (
+                                                <p className="text-xs text-gray-400 mt-1">Total Potensi: Rp {(previewPeriodes.length * selectedFeeForGen.nominal).toLocaleString("id-ID")}</p>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Hasil Generate */}
+                                    {genResult && (
+                                        <div className={`rounded-xl p-4 mb-4 text-sm ${genResult.created.length > 0 ? "bg-emerald-900/50 border border-emerald-700" : "bg-gray-800"}`}>
+                                            <p className="font-bold text-emerald-400 mb-2">✅ {genResult.created.length} Tagihan Berhasil Dibuat</p>
+                                            {genResult.created.map(p => <span key={p} className="inline-block text-xs bg-emerald-800 text-emerald-200 px-2 py-0.5 rounded mr-1 mb-1">{p}</span>)}
+                                            {genResult.skipped.length > 0 && (
+                                                <>
+                                                    <p className="font-bold text-yellow-400 mt-3 mb-1">⏭️ {genResult.skipped.length} Dilewati (Sudah Ada)</p>
+                                                    {genResult.skipped.map(p => <span key={p} className="inline-block text-xs bg-yellow-900 text-yellow-200 px-2 py-0.5 rounded mr-1 mb-1">{p}</span>)}
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    <button onClick={handleGenerateStudent} disabled={isGenerating || !genSelectedStudent || genFeeId === "" || previewPeriodes.length === 0}
+                                        className="w-full py-4 bg-emerald-500 text-gray-900 rounded-2xl font-black text-base hover:bg-emerald-400 transition-all disabled:opacity-30 shadow-[0_0_20px_rgba(16,185,129,0.3)]">
+                                        {isGenerating ? "MEMBUAT TAGIHAN..." : `BUAT ${previewPeriodes.length} TAGIHAN`}
+                                    </button>
+                                    {(!genSelectedStudent || genFeeId === "" || previewPeriodes.length === 0) && (
+                                        <p className="text-center text-xs text-gray-500 mt-2">Lengkapi santri, iuran, dan periode.</p>
+                                    )}
+
+                                    <div className="mt-4 bg-yellow-900/40 border border-yellow-700/50 rounded-xl p-3 text-xs text-yellow-300">
+                                        <strong>💡 Info:</strong> Tagihan yang dibuat akan langsung muncul di Tab Bayar. Tagihan yang sudah ada untuk periode yang sama tidak akan digandakan.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 

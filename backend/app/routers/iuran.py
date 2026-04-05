@@ -248,6 +248,75 @@ def generate_mass_invoices(
     }
 
 # ============================================================
+# GENERATE TAGIHAN PER-SANTRI (INDIVIDUAL / BACKDATE)
+# ============================================================
+
+class GenerateStudentRequest(BaseModel):
+    student_id: int
+    fee_definition_id: int
+    periode_labels: List[str]  # Bisa 1 atau lebih, contoh: ["2026-01","2026-02","2026-03"]
+
+@router.post("/generate/student")
+def generate_student_invoices(
+    req: GenerateStudentRequest,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user_payload)
+):
+    """
+    Membuat tagihan (invoice) untuk 1 santri tertentu, untuk 1 jenis iuran tertentu,
+    pada 1 atau lebih periode sekaligus (batch backdate).
+    Bersifat Idempotent: tagihan yang sudah ada akan dilewati (tidak digandakan).
+    """
+    # Validasi santri
+    student = db.query(models.Student).filter(models.Student.student_id == req.student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Santri tidak ditemukan.")
+    
+    # Validasi definisi iuran
+    fee_def = db.query(models.FeeDefinition).filter(models.FeeDefinition.id == req.fee_definition_id).first()
+    if not fee_def:
+        raise HTTPException(status_code=404, detail="Definisi iuran tidak ditemukan.")
+
+    if not req.periode_labels:
+        raise HTTPException(status_code=400, detail="Minimal 1 periode harus dipilih.")
+
+    created = []
+    skipped = []
+
+    for periode in req.periode_labels:
+        # Cek apakah sudah ada
+        exists = db.query(models.StudentPayment).filter(
+            models.StudentPayment.student_id == req.student_id,
+            models.StudentPayment.fee_definition_id == req.fee_definition_id,
+            models.StudentPayment.periode_label == periode
+        ).first()
+
+        if exists:
+            skipped.append(periode)
+        else:
+            new_invoice = models.StudentPayment(
+                student_id=req.student_id,
+                fee_definition_id=req.fee_definition_id,
+                periode_label=periode,
+                nominal_dibayar=0.0,
+                status=models.PaymentStatusEnum.BELUM_BAYAR,
+                catatan=f"Dibuat manual oleh kasir",
+                sync_status=False
+            )
+            db.add(new_invoice)
+            created.append(periode)
+
+    db.commit()
+
+    return {
+        "message": f"Berhasil membuat {len(created)} tagihan untuk {student.full_name}. {len(skipped)} dilewati (sudah ada).",
+        "student_name": student.full_name,
+        "fee_name": fee_def.nama_iuran,
+        "created": created,
+        "skipped": skipped
+    }
+
+# ============================================================
 # TUNGGAKAN / STATUS IURAN ENDPOINT
 # ============================================================
 
