@@ -191,6 +191,73 @@ def delete_student_payment(
 # MASS GENERATION (TAGIHAN OTOMATIS)
 # ============================================================
 
+def _derive_periode_label(source_ym: str, tipe: str) -> str:
+    """
+    Mengkonversi label periode YYYY-MM ke format yang tepat berdasarkan tipe iuran.
+    Contoh: "2026-04", TAHUNAN -> "2026" | "2026-04", SEMESTER -> "2026-S1" | "2026-04", BULANAN -> "2026-04"
+    """
+    try:
+        year = source_ym[:4]
+        month = int(source_ym[5:7]) if len(source_ym) >= 7 else 1
+    except (ValueError, IndexError):
+        return source_ym  # fallback ke input asli
+
+    if tipe == "BULANAN":
+        return source_ym
+    elif tipe == "SEMESTER":
+        sem = 1 if month <= 6 else 2
+        return f"{year}-S{sem}"
+    elif tipe == "TAHUNAN":
+        return year
+    else:  # INSIDENTAL
+        return source_ym
+
+
+def _payment_exists_for_scope(db, student_id: int, fee_def_id: int, tipe: str, derived_label: str) -> bool:
+    """
+    Cek apakah sudah ada tagihan untuk santri+iuran+scope periode tertentu.
+    Untuk TAHUNAN: cek semua record dengan tahun yang sama (menangani format lama YYYY-MM).
+    Untuk SEMESTER: cek derived_label + format lama YYYY-MM dalam semester tersebut.
+    Untuk BULANAN/INSIDENTAL: cek exact match.
+    """
+    from sqlalchemy import or_
+
+    if tipe == "TAHUNAN":
+        # Cek: periode_label = "2026" ATAU periode_label LIKE "2026-%" (format lama dari massal)
+        year = derived_label[:4]
+        exists = db.query(models.StudentPayment).filter(
+            models.StudentPayment.student_id == student_id,
+            models.StudentPayment.fee_definition_id == fee_def_id,
+            or_(
+                models.StudentPayment.periode_label == derived_label,
+                models.StudentPayment.periode_label.like(f"{year}-%")
+            )
+        ).first()
+    elif tipe == "SEMESTER":
+        # Cek: periode_label = "2026-S1" ATAU format lama "2026-01" s/d "2026-06"
+        year = derived_label[:4]
+        sem_num = derived_label[-1] if "-S" in derived_label else "1"
+        months_in_sem = range(1, 7) if sem_num == "1" else range(7, 13)
+        month_labels = [f"{year}-{m:02d}" for m in months_in_sem]
+        exists = db.query(models.StudentPayment).filter(
+            models.StudentPayment.student_id == student_id,
+            models.StudentPayment.fee_definition_id == fee_def_id,
+            or_(
+                models.StudentPayment.periode_label == derived_label,
+                models.StudentPayment.periode_label.in_(month_labels)
+            )
+        ).first()
+    else:
+        # BULANAN / INSIDENTAL: exact match
+        exists = db.query(models.StudentPayment).filter(
+            models.StudentPayment.student_id == student_id,
+            models.StudentPayment.fee_definition_id == fee_def_id,
+            models.StudentPayment.periode_label == derived_label
+        ).first()
+
+    return exists is not None
+
+
 class GenerateRequest(BaseModel):
     periode_label: str
 
@@ -201,32 +268,52 @@ def generate_mass_invoices(
     current_user: dict = Depends(get_current_user_payload)
 ):
     """
-    Menghasilkan tagihan (invoice) untuk semua santri aktif terhadap semua iuran aktif pada bulan/periode tertentu.
-    Metode ini Idempotent (jika tagihan sudah ada di periode itu, akan diskip).
+    Menghasilkan tagihan (invoice) untuk semua santri aktif terhadap semua iuran aktif.
+    Setiap jenis iuran mendapatkan format periode yang sesuai tipe-nya:
+    - BULANAN: "2026-04", SEMESTER: "2026-S1", TAHUNAN: "2026", INSIDENTAL: sesuai input.
+    Metode ini Idempotent (jika tagihan sudah ada di scope periode tersebut, akan diskip).
     """
     active_fees = db.query(models.FeeDefinition).filter(models.FeeDefinition.is_active == True).all()
-    # Student model doesn't have is_active, so query all students for now
     active_students = db.query(models.Student).all()
 
     created_count = 0
     skipped_count = 0
 
-    # Cache existing payments in memory to avoid N+1 queries
+    # Ambil semua tagihan dalam tahun yang sama untuk cache idempoten
+    year = req.periode_label[:4]
     existing_payments = db.query(models.StudentPayment).filter(
-        models.StudentPayment.periode_label == req.periode_label
+        models.StudentPayment.periode_label.like(f"{year}%")
     ).all()
-    
-    payment_exists_set = {(p.student_id, p.fee_definition_id) for p in existing_payments}
+
+    # Cache: set of (student_id, fee_id, periode_label)
+    payment_exists_set = {(p.student_id, p.fee_definition_id, p.periode_label) for p in existing_payments}
 
     new_invoices = []
-    
+
     for st in active_students:
         for fee in active_fees:
-            if (st.student_id, fee.id) not in payment_exists_set:
+            # Derive correct periode based on fee type
+            correct_periode = _derive_periode_label(req.periode_label, fee.tipe_periode)
+
+            # Idempoten: cek exact label dan juga format lama (untuk TAHUNAN/SEMESTER)
+            already_exists = (st.student_id, fee.id, correct_periode) in payment_exists_set
+
+            # Extra check: handle format lama (YYYY-MM) untuk TAHUNAN dan SEMESTER
+            if not already_exists and fee.tipe_periode in ("TAHUNAN", "SEMESTER"):
+                # Cek apakah ada record dengan format lama (YYYY-MM) dalam scope ini
+                old_format_check = any(
+                    (st.student_id, fee.id, p_label) in payment_exists_set
+                    for _, _, p_label in [(sid, fid, pl) for (sid, fid, pl) in payment_exists_set
+                                          if sid == st.student_id and fid == fee.id]
+                )
+                if old_format_check:
+                    already_exists = True
+
+            if not already_exists:
                 new_invoices.append(models.StudentPayment(
                     student_id=st.student_id,
                     fee_definition_id=fee.id,
-                    periode_label=req.periode_label,
+                    periode_label=correct_periode,
                     nominal_dibayar=0.0,
                     status=models.PaymentStatusEnum.BELUM_BAYAR,
                     catatan="Digenerate massal",
@@ -235,9 +322,8 @@ def generate_mass_invoices(
                 created_count += 1
             else:
                 skipped_count += 1
-                
+
     if new_invoices:
-        # Use bulk_save_objects for massively faster insertion
         db.bulk_save_objects(new_invoices)
         db.commit()
 
@@ -254,7 +340,7 @@ def generate_mass_invoices(
 class GenerateStudentRequest(BaseModel):
     student_id: int
     fee_definition_id: int
-    periode_labels: List[str]  # Bisa 1 atau lebih, contoh: ["2026-01","2026-02","2026-03"]
+    periode_labels: List[str]
 
 @router.post("/generate/student")
 def generate_student_invoices(
@@ -263,16 +349,16 @@ def generate_student_invoices(
     current_user: dict = Depends(get_current_user_payload)
 ):
     """
-    Membuat tagihan (invoice) untuk 1 santri tertentu, untuk 1 jenis iuran tertentu,
-    pada 1 atau lebih periode sekaligus (batch backdate).
-    Bersifat Idempotent: tagihan yang sudah ada akan dilewati (tidak digandakan).
+    Membuat tagihan untuk 1 santri tertentu, 1 jenis iuran, pada 1 atau lebih periode.
+    Idempoten dengan scope-aware check: 
+    - TAHUNAN: tidak buat jika sudah ada tagihan dalam tahun yang sama (format apapun).
+    - SEMESTER: tidak buat jika sudah ada tagihan dalam semester yang sama (format apapun).
+    - BULANAN/INSIDENTAL: exact match.
     """
-    # Validasi santri
     student = db.query(models.Student).filter(models.Student.student_id == req.student_id).first()
     if not student:
         raise HTTPException(status_code=404, detail="Santri tidak ditemukan.")
-    
-    # Validasi definisi iuran
+
     fee_def = db.query(models.FeeDefinition).filter(models.FeeDefinition.id == req.fee_definition_id).first()
     if not fee_def:
         raise HTTPException(status_code=404, detail="Definisi iuran tidak ditemukan.")
@@ -284,14 +370,12 @@ def generate_student_invoices(
     skipped = []
 
     for periode in req.periode_labels:
-        # Cek apakah sudah ada
-        exists = db.query(models.StudentPayment).filter(
-            models.StudentPayment.student_id == req.student_id,
-            models.StudentPayment.fee_definition_id == req.fee_definition_id,
-            models.StudentPayment.periode_label == periode
-        ).first()
+        # Smart idempotent check berdasarkan scope tipe periode
+        already_exists = _payment_exists_for_scope(
+            db, req.student_id, req.fee_definition_id, fee_def.tipe_periode, periode
+        )
 
-        if exists:
+        if already_exists:
             skipped.append(periode)
         else:
             new_invoice = models.StudentPayment(
@@ -300,7 +384,7 @@ def generate_student_invoices(
                 periode_label=periode,
                 nominal_dibayar=0.0,
                 status=models.PaymentStatusEnum.BELUM_BAYAR,
-                catatan=f"Dibuat manual oleh kasir",
+                catatan="Dibuat manual oleh kasir",
                 sync_status=False
             )
             db.add(new_invoice)
@@ -312,6 +396,7 @@ def generate_student_invoices(
         "message": f"Berhasil membuat {len(created)} tagihan untuk {student.full_name}. {len(skipped)} dilewati (sudah ada).",
         "student_name": student.full_name,
         "fee_name": fee_def.nama_iuran,
+        "fee_type": fee_def.tipe_periode,
         "created": created,
         "skipped": skipped
     }
