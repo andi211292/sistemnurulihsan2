@@ -43,7 +43,7 @@ export default function ManajemenIuranPage() {
     const [userRole, setUserRole] = useState<RoleType>("UNKNOWN");
     const [genderFilter, setGenderFilter] = useState<string>("");
 
-    const [activeTab, setActiveTab] = useState<"daftar" | "bayar" | "generate">("daftar");
+    const [activeTab, setActiveTab] = useState<"daftar" | "bayar" | "generate" | "kelola">("daftar");
     const [isLoading, setIsLoading] = useState(true);
     const [toastMsg, setToastMsg] = useState<{ text: string; ok: boolean } | null>(null);
 
@@ -56,6 +56,13 @@ export default function ManajemenIuranPage() {
     const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
     const [tagihanList, setTagihanList] = useState<Tagihan[]>([]);
     const [customCart, setCustomCart] = useState<{ fee_id: number, periode: string, nominal: number }[]>([]);
+
+    // Kelola Tagihan Tab State
+    const [kelolaSearch, setKelolaSearch] = useState("");
+    const [kelolaSelected, setKelolaSelected] = useState<Student | null>(null);
+    const [kelolaTagihan, setKelolaTagihan] = useState<Tagihan[]>([]);
+    const [kelolaLoading, setKelolaLoading] = useState(false);
+    const [kelolaShowAll, setKelolaShowAll] = useState(true);
     
     // Checked items (from Tagihan + Custom Cart)
     const [checkedTagihan, setCheckedTagihan] = useState<Set<number>>(new Set());
@@ -280,6 +287,45 @@ export default function ManajemenIuranPage() {
         }
     };
 
+    // ==== TAB 4: KELOLA TAGIHAN ====
+    const kelolaFilteredStudents = kelolaSearch.length >= 2 ? students.filter(s => {
+        const matchG = !genderFilter || s.gender?.toUpperCase() === genderFilter;
+        const matchS = s.full_name.toLowerCase().includes(kelolaSearch.toLowerCase()) || s.nis.includes(kelolaSearch);
+        return matchG && matchS;
+    }).slice(0, 10) : [];
+
+    const fetchKelolaTagihan = async (studentId: number) => {
+        setKelolaLoading(true);
+        try {
+            const res = await apiFetch(`/api/iuran/status/${studentId}`);
+            if (res.ok) setKelolaTagihan(await res.json());
+        } catch (err) { console.error(err); }
+        finally { setKelolaLoading(false); }
+    };
+
+    const handleDeleteTagihan = async (payment_id: number, label: string) => {
+        if (!confirm(`⚠️ Hapus permanen tagihan "${label}"?\n\nJika tagihan ini sudah LUNAS, data pembayarannya juga akan hilang dari laporan.`)) return;
+        const res = await apiFetch(`/api/iuran/payments/${payment_id}`, { method: "DELETE" });
+        if (res.ok) {
+            showToast("Tagihan berhasil dihapus.");
+            if (kelolaSelected) fetchKelolaTagihan(kelolaSelected.student_id);
+        } else {
+            const err = await res.json();
+            showToast(err.detail || "Gagal menghapus tagihan", false);
+        }
+    };
+
+    const handleResetTagihan = async (payment_id: number, label: string) => {
+        if (!confirm(`Reset pembayaran "${label}" menjadi Belum Bayar?\n\nCatatan pembayaran akan dihapus namun tagihan tetap ada dan bisa dibayar ulang.`)) return;
+        const res = await apiFetch(`/api/iuran/payments/${payment_id}/reset`, { method: "PUT" });
+        if (res.ok) {
+            showToast("Pembayaran berhasil direset ke Belum Bayar.");
+            if (kelolaSelected) fetchKelolaTagihan(kelolaSelected.student_id);
+        } else {
+            showToast("Gagal mereset pembayaran", false);
+        }
+    };
+
     // Helper: build array of YYYY-MM from fromMonth to toMonth
     const buildPeriodeLabels = (): string[] => {
         const selectedFee = feeDefs.find(f => f.id === genFeeId);
@@ -375,10 +421,11 @@ export default function ManajemenIuranPage() {
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-2 border-b border-gray-200 pb-2">
+            <div className="flex gap-2 border-b border-gray-200 pb-2 flex-wrap">
                 {[
                     { key: "bayar", label: "💳 Catat Pembayaran", icon: "point_of_sale" },
-                    { key: "generate", label: "⚙️ Buat Tagihan Massal", icon: "autorenew" },
+                    { key: "generate", label: "⚙️ Buat Tagihan", icon: "autorenew" },
+                    { key: "kelola", label: "🛠️ Kelola Tagihan", icon: "manage_history" },
                     { key: "daftar", label: "📋 Master Iuran", icon: "format_list_bulleted" }
                 ].map(tab => (
                     <button key={tab.key} onClick={() => setActiveTab(tab.key as any)}
@@ -789,6 +836,143 @@ export default function ManajemenIuranPage() {
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* ==== TAB KELOLA TAGIHAN ==== */}
+            {activeTab === "kelola" && (
+                <div className="space-y-5">
+                    <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex gap-3 items-start">
+                        <span className="material-icons text-amber-500 mt-0.5">warning</span>
+                        <div className="text-sm text-amber-800">
+                            <p className="font-bold mb-1">Halaman Koreksi Tagihan</p>
+                            <p>Gunakan halaman ini untuk memperbaiki tagihan yang <strong>salah dibuat</strong>. Terdapat 2 opsi koreksi:</p>
+                            <ul className="mt-1 space-y-0.5 ml-3 list-disc text-xs">
+                                <li><strong>Hapus Permanen</strong> — tagihan benar-benar dihapus (cocok untuk tagihan yang tidak seharusnya ada, misalnya duplikat PHBI)</li>
+                                <li><strong>Reset ke Belum Bayar</strong> — tagihan tetap ada tapi catatan pembayarannya dihapus (untuk membetulkan input salah tanpa menghapus tagihannya)</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    {/* Cari Santri */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                        <h3 className="font-bold text-gray-700 mb-3 flex items-center gap-2">
+                            <span className="material-icons text-amber-500">person_search</span>
+                            Cari Santri
+                        </h3>
+                        <input type="text" placeholder="🔍 Ketik nama atau NIS..."
+                            value={kelolaSearch}
+                            onChange={e => { setKelolaSearch(e.target.value); if (kelolaSelected) { setKelolaSelected(null); setKelolaTagihan([]); } }}
+                            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-400 outline-none text-sm mb-2" />
+
+                        {kelolaSelected ? (
+                            <div className="flex items-center gap-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-4">
+                                <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-white text-lg ${kelolaSelected.gender === "PUTRI" ? "bg-pink-500" : "bg-blue-500"}`}>
+                                    {kelolaSelected.full_name.charAt(0)}
+                                </div>
+                                <div className="flex-1">
+                                    <p className="font-bold text-gray-900">{kelolaSelected.full_name}</p>
+                                    <p className="text-xs text-gray-600">{kelolaSelected.nis} · Kls {kelolaSelected.student_class}</p>
+                                </div>
+                                <button type="button" onClick={() => { setKelolaSelected(null); setKelolaSearch(""); setKelolaTagihan([]); }}
+                                    className="p-2 bg-white rounded-full text-gray-400 hover:text-red-500 shadow-sm transition">
+                                    <span className="material-icons">close</span>
+                                </button>
+                            </div>
+                        ) : kelolaSearch.length >= 2 && (
+                            <div className="border border-gray-200 rounded-xl overflow-hidden max-h-48 overflow-y-auto">
+                                {kelolaFilteredStudents.length === 0
+                                    ? <div className="p-4 text-center text-gray-400 text-sm">Santri tidak ditemukan</div>
+                                    : kelolaFilteredStudents.map(s => (
+                                        <button key={s.student_id} type="button"
+                                            onClick={() => { setKelolaSelected(s); setKelolaSearch(s.full_name); fetchKelolaTagihan(s.student_id); }}
+                                            className="w-full text-left px-4 py-3 hover:bg-amber-50 border-b border-gray-50 text-sm flex items-center gap-3 transition">
+                                            <span className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${s.gender === "PUTRI" ? "bg-pink-400" : "bg-blue-400"}`}>
+                                                {s.full_name.charAt(0)}
+                                            </span>
+                                            <div>
+                                                <p className="font-bold text-gray-800">{s.full_name}</p>
+                                                <p className="text-xs text-gray-400">{s.nis} · Kls {s.student_class}</p>
+                                            </div>
+                                        </button>
+                                    ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Daftar Tagihan */}
+                    {kelolaSelected && (
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                            <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
+                                <h3 className="font-bold text-gray-700 flex items-center gap-2">
+                                    <span className="material-icons text-amber-500">receipt_long</span>
+                                    Semua Tagihan — {kelolaSelected.full_name}
+                                    <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-medium">{kelolaTagihan.length} total</span>
+                                </h3>
+                                <div className="flex items-center gap-2">
+                                    <label className="text-sm text-gray-600 flex items-center gap-2 cursor-pointer select-none">
+                                        <input type="checkbox" checked={kelolaShowAll} onChange={e => setKelolaShowAll(e.target.checked)}
+                                            className="w-4 h-4 accent-amber-500" />
+                                        Tampilkan yang sudah LUNAS
+                                    </label>
+                                    <button onClick={() => fetchKelolaTagihan(kelolaSelected.student_id)}
+                                        className="text-xs px-3 py-1.5 bg-gray-100 rounded-lg text-gray-600 hover:bg-gray-200 flex items-center gap-1 transition">
+                                        <span className="material-icons text-xs">refresh</span> Refresh
+                                    </button>
+                                </div>
+                            </div>
+
+                            {kelolaLoading ? (
+                                <div className="p-8 text-center text-gray-400">Memuat tagihan...</div>
+                            ) : kelolaTagihan.filter(t => kelolaShowAll || t.status !== "LUNAS").length === 0 ? (
+                                <div className="p-8 text-center text-gray-400 text-sm">
+                                    {kelolaShowAll ? "Belum ada tagihan untuk santri ini." : "Tidak ada tagihan yang belum lunas."}
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {kelolaTagihan
+                                        .filter(t => kelolaShowAll || t.status !== "LUNAS")
+                                        .map(t => {
+                                            const isLunas = t.status === "LUNAS";
+                                            const isDicicil = t.status === "DICICIL";
+                                            return (
+                                                <div key={t.payment_id} className={`flex items-center gap-4 p-4 rounded-xl border ${isLunas ? "bg-emerald-50 border-emerald-200" : isDicicil ? "bg-blue-50 border-blue-200" : "bg-red-50 border-red-200"}`}>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <p className="font-bold text-gray-900 text-sm">{t.fee_definition.nama_iuran}</p>
+                                                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${PERIODE_COLOR[t.fee_definition.tipe_periode]}`}>
+                                                                {PERIODE_LABEL[t.fee_definition.tipe_periode]}
+                                                            </span>
+                                                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${isLunas ? "bg-emerald-100 text-emerald-700" : isDicicil ? "bg-blue-100 text-blue-700" : "bg-red-100 text-red-700"}`}>
+                                                                {isLunas ? "✅ LUNAS" : isDicicil ? "🔄 DICICIL" : "❌ BELUM BAYAR"}
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-xs text-gray-500 mt-1">Periode: <strong>{t.periode_label}</strong></p>
+                                                        <div className="text-xs text-gray-500 mt-0.5 flex gap-3">
+                                                            <span>Tagihan: <strong>Rp {t.nominal_tagihan.toLocaleString("id-ID")}</strong></span>
+                                                            {t.nominal_dibayar > 0 && <span>Dibayar: <strong className="text-emerald-600">Rp {t.nominal_dibayar.toLocaleString("id-ID")}</strong></span>}
+                                                            {t.sisa_tagihan > 0 && <span>Sisa: <strong className="text-red-600">Rp {t.sisa_tagihan.toLocaleString("id-ID")}</strong></span>}
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex flex-col gap-2 shrink-0">
+                                                        {isLunas && (
+                                                            <button onClick={() => handleResetTagihan(t.payment_id, `${t.fee_definition.nama_iuran} ${t.periode_label}`)}
+                                                                className="text-xs px-3 py-1.5 bg-white border border-blue-300 text-blue-700 font-bold rounded-lg hover:bg-blue-50 transition flex items-center gap-1">
+                                                                <span className="material-icons text-xs">restart_alt</span> Reset Bayar
+                                                            </button>
+                                                        )}
+                                                        <button onClick={() => handleDeleteTagihan(t.payment_id, `${t.fee_definition.nama_iuran} ${t.periode_label}`)}
+                                                            className="text-xs px-3 py-1.5 bg-white border border-red-300 text-red-700 font-bold rounded-lg hover:bg-red-50 transition flex items-center gap-1">
+                                                            <span className="material-icons text-xs">delete_forever</span> Hapus
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
