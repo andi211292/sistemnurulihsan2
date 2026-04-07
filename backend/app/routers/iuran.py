@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from .. import schemas, models
 from ..database import SessionLocal
+from ..database_cloud import CloudSessionLocal
 from ..dependencies import require_role, get_current_user_payload
 
 router = APIRouter(
@@ -400,6 +401,69 @@ def generate_student_invoices(
         "created": created,
         "skipped": skipped
     }
+
+
+# ============================================================
+# KELOLA & KOREKSI TAGIHAN (DELETE/RESET)
+# ============================================================
+
+@router.delete("/payments/{payment_id}")
+def delete_student_payment(
+    payment_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user_payload)
+):
+    """
+    Hapus permanen tagihan (invoice). 
+    Akan mencoba menghapus di SQLite lokal DAN Cloud Supabase jika tersedia.
+    """
+    payment = db.query(models.StudentPayment).filter(models.StudentPayment.id == payment_id).first()
+    if not payment:
+        raise HTTPException(status_code=404, detail="Tagihan tidak ditemukan.")
+    
+    # 1. Hapus dari Cloud Supabase (agar Portal Wali bersih)
+    if CloudSessionLocal:
+        try:
+            cloud_db = CloudSessionLocal()
+            cloud_payment = cloud_db.query(models.StudentPayment).filter(models.StudentPayment.id == payment_id).first()
+            if cloud_payment:
+                cloud_db.delete(cloud_payment)
+                cloud_db.commit()
+            cloud_db.close()
+        except Exception as e:
+            print(f"Warning: Failed to delete from cloud: {e}")
+            # Kita tetap lanjut hapus lokal walau cloud gagal (atau nanti disync ulang jika ada sistem cleanup)
+
+    # 2. Hapus dari SQLite Lokal
+    db.delete(payment)
+    db.commit()
+    
+    return {"message": "Tagihan berhasil dihapus permanen (Lokal & Cloud)."}
+
+
+@router.put("/payments/{payment_id}/reset")
+def reset_student_payment(
+    payment_id: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user_payload)
+):
+    """
+    Reset pembayaran menjadi BELUM_BAYAR (nominal_dibayar = 0).
+    Tagihan tetap ada, tapi statusnya kembali awal.
+    """
+    payment = db.query(models.StudentPayment).filter(models.StudentPayment.id == payment_id).first()
+    if not payment:
+        raise HTTPException(status_code=404, detail="Tagihan tidak ditemukan.")
+    
+    payment.nominal_dibayar = 0.0
+    payment.status = models.PaymentStatusEnum.BELUM_BAYAR
+    payment.tanggal_bayar = None
+    payment.sync_status = False # Memicu sync_worker untuk update ke Cloud
+    
+    db.commit()
+    db.refresh(payment)
+    
+    return {"message": "Pembayaran berhasil direset menjadi Belum Bayar."}
 
 # ============================================================
 # TUNGGAKAN / STATUS IURAN ENDPOINT
