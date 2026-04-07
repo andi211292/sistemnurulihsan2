@@ -465,6 +465,59 @@ def reset_student_payment(
     
     return {"message": "Pembayaran berhasil direset menjadi Belum Bayar."}
 
+
+@router.post("/sync/cleanup")
+def cleanup_ghost_cloud_data(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user_payload)
+):
+    """
+    Menghapus data di Cloud (Supabase) yang sudah tidak ada di STB Lokal (SQLite).
+    Sangat berguna jika ada 'data hantu' yang tertinggal di Cloud tapi terhapus di STB.
+    """
+    if not CloudSessionLocal:
+        raise HTTPException(status_code=400, detail="Database Cloud tidak terkonfigurasi.")
+
+    try:
+        # 1. Ambil semua ID yang ada di Lokal
+        # SQLite: Ambil daftar ID saja untuk efisiensi
+        local_ids = {row[0] for row in db.query(models.StudentPayment.id).all()}
+        
+        # 2. Ambil semua ID yang ada di Cloud
+        cloud_db = CloudSessionLocal()
+        # Untuk PostgreSQL, kita juga hanya butuh ID
+        cloud_results = cloud_db.query(models.StudentPayment.id).all()
+        cloud_ids = {row[0] for row in cloud_results}
+        
+        # 3. Identifikasi data hantu (Ada di Cloud tapi TIDAK ada di Lokal)
+        ghost_ids = cloud_ids - local_ids
+        
+        deleted_count = 0
+        if ghost_ids:
+            from sqlalchemy import delete
+            # Hapus data hantu di Cloud
+            # Ganti ke query delete yang lebih clean untuk banyak ID
+            stmt = delete(models.StudentPayment).where(models.StudentPayment.id.in_(list(ghost_ids)))
+            cloud_db.execute(stmt)
+            cloud_db.commit()
+            deleted_count = len(ghost_ids)
+        
+        cloud_db.close()
+        
+        # 5. Opsional: Tandai kategory iuran untuk sync ulang jika ada yang kotor
+        return {
+            "status": "success",
+            "message": f"Pembersihan selesai. {deleted_count} data hantu dihapus dari Cloud.",
+            "ghost_count": deleted_count,
+            "local_total": len(local_ids),
+            "cloud_total": len(cloud_ids)
+        }
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Gagal membersihkan data cloud: {str(e)}")
+
+
 # ============================================================
 # TUNGGAKAN / STATUS IURAN ENDPOINT
 # ============================================================

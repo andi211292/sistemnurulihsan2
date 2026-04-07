@@ -63,6 +63,7 @@ export default function ManajemenIuranPage() {
     const [kelolaTagihan, setKelolaTagihan] = useState<Tagihan[]>([]);
     const [kelolaLoading, setKelolaLoading] = useState(false);
     const [kelolaShowAll, setKelolaShowAll] = useState(true);
+    const [isCleaning, setIsCleaning] = useState(false);
     
     // Checked items (from Tagihan + Custom Cart)
     const [checkedTagihan, setCheckedTagihan] = useState<Set<number>>(new Set());
@@ -323,6 +324,26 @@ export default function ManajemenIuranPage() {
             if (kelolaSelected) fetchKelolaTagihan(kelolaSelected.student_id);
         } else {
             showToast("Gagal mereset pembayaran", false);
+        }
+    };
+
+    const handleCleanupCloud = async () => {
+        if (!confirm("⚠️ PERINGATAN: Fitur ini akan menghapus semua tagihan di Cloud (Supabase) yang sudah tidak terdaftar di STB lokal Anda.\n\nGunakan ini untuk membersihkan 'tagihan hantu' yang masih muncul di Portal Wali meskipun sudah dihapus di Admin.\n\nLanjutkan?")) return;
+        
+        setIsCleaning(true);
+        try {
+            const res = await apiFetch("/api/iuran/sync/cleanup", { method: "POST" });
+            const data = await res.json();
+            if (res.ok) {
+                alert(`✅ Sinkronisasi & Pembersihan Berhasil!\n\n${data.message}`);
+                if (kelolaSelected) fetchKelolaTagihan(kelolaSelected.student_id);
+            } else {
+                showToast(data.detail || "Gagal membersihkan cloud", false);
+            }
+        } catch (err) {
+            showToast("Terjadi kesalahan jaringan", false);
+        } finally {
+            setIsCleaning(false);
         }
     };
 
@@ -853,6 +874,13 @@ export default function ManajemenIuranPage() {
                                 <li><strong>Hapus Permanen</strong> — tagihan benar-benar dihapus (cocok untuk tagihan yang tidak seharusnya ada, misalnya duplikat PHBI)</li>
                                 <li><strong>Reset ke Belum Bayar</strong> — tagihan tetap ada tapi catatan pembayarannya dihapus (untuk membetulkan input salah tanpa menghapus tagihannya)</li>
                             </ul>
+                        </div>
+                        <div className="shrink-0">
+                            <button onClick={handleCleanupCloud} disabled={isCleaning}
+                                className="bg-white border border-amber-300 text-amber-700 font-bold px-4 py-3 rounded-2xl hover:bg-amber-100 transition flex items-center gap-2 shadow-sm disabled:opacity-50">
+                                <span className={`material-icons ${isCleaning ? 'animate-spin' : ''}`}>{isCleaning ? 'sync' : 'cleaning_services'}</span>
+                                {isCleaning ? 'Membersihkan...' : 'Bersihkan Data Hantu Cloud'}
+                            </button>
                         </div>
                     </div>
 
