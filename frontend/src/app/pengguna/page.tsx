@@ -263,13 +263,22 @@ export default function PenggunaPage() {
                 ))}
               </select>
             </div>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition shadow-sm"
-            >
-              <span className="material-icons text-lg">person_add</span>
-              Tambah Pengguna
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => window.location.href = '/pengguna/hak-akses'}
+                className="flex items-center gap-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium transition shadow-sm"
+              >
+                <span className="material-icons text-lg text-amber-500">admin_panel_settings</span>
+                Hak Akses Role
+              </button>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition shadow-sm"
+              >
+                <span className="material-icons text-lg">person_add</span>
+                Tambah Pengguna
+              </button>
+            </div>
           </div>
 
           {/* User Table */}

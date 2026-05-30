@@ -51,6 +51,20 @@ export default function LoginPage() {
             // Hapus yang bohongan jika ada
             localStorage.removeItem("dummy_role");
 
+            // Fetch & cache hak akses menu untuk role ini
+            try {
+                const permRes = await fetch(`${baseUrl}/api/permissions/my-role`, {
+                    headers: { "Authorization": `Bearer ${data.access_token}` }
+                });
+                if (permRes.ok) {
+                    const permData = await permRes.json();
+                    localStorage.setItem("allowed_menus", JSON.stringify(permData.allowed_menus));
+                }
+            } catch {
+                // Jika gagal fetch permissions, set array kosong (sidebar akan fallback ke default)
+                localStorage.setItem("allowed_menus", JSON.stringify([]));
+            }
+
             // Redirect ke dashboard
             router.push("/");
             // Force refresh to reload layouts/components with new auth state

@@ -427,3 +427,17 @@ class StudentPayment(Base):
     created_at          = Column(DateTime, default=datetime.datetime.utcnow)
     sync_status         = Column(Boolean, default=False)
 
+
+# =============================================================
+# MODUL HAK AKSES ROLE (RBAC)
+# =============================================================
+
+class RolePermission(Base):
+    """Konfigurasi hak akses menu per role. Dikelola oleh Super Admin."""
+    __tablename__ = "role_permissions"
+
+    id          = Column(Integer, primary_key=True, index=True)
+    role        = Column(SqlEnum(RoleEnum), nullable=False, index=True)
+    menu_key    = Column(String, nullable=False)   # Path menu, contoh: "/santri", "/keuangan/iuran"
+    is_allowed  = Column(Boolean, default=False)
+    updated_at  = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)

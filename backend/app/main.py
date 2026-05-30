@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 import asyncio
 
 from . import models, schemas, crud
-from .routers import rfid, tahfidz, keuangan, academic, auth, absensi, medical, ranking, gallery, iuran, users
+from .routers import rfid, tahfidz, keuangan, academic, auth, absensi, medical, ranking, gallery, iuran, users, permissions
 from .database import engine, SessionLocal
 from .services import sync_worker, invoice_worker
 
@@ -27,7 +27,22 @@ async def lifespan(app: FastAPI):
             conn.execute(text("ALTER TABLE expenses ADD COLUMN gender_scope VARCHAR(10);"))
     except Exception:
         pass
-    
+
+    # Startup: Auto-migrate role_permissions table
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS role_permissions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    role VARCHAR(50) NOT NULL,
+                    menu_key VARCHAR(100) NOT NULL,
+                    is_allowed BOOLEAN NOT NULL DEFAULT 0,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                );
+            """))
+    except Exception:
+        pass
+
     yield
     # Shutdown: Cleanly cancel background tasks
     sync_task.cancel()
@@ -259,3 +274,4 @@ app.include_router(ranking.router)
 app.include_router(gallery.router)
 app.include_router(iuran.router)
 app.include_router(users.router)
+app.include_router(permissions.router)

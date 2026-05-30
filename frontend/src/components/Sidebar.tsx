@@ -14,6 +14,7 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
     const router = useRouter();
 
     const [role, setRole] = useState("SUPER_ADMIN");
+    const [allowedMenus, setAllowedMenus] = useState<string[]>([]);
     const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
@@ -22,37 +23,54 @@ export default function Sidebar({ isOpen, setIsOpen }: SidebarProps) {
         if (savedRole) {
             setRole(savedRole);
         }
+        // Baca daftar menu yang diizinkan dari cache login
+        const saved = localStorage.getItem("allowed_menus");
+        if (saved) {
+            try {
+                setAllowedMenus(JSON.parse(saved));
+            } catch {
+                setAllowedMenus([]);
+            }
+        } else if (savedRole === "SUPER_ADMIN") {
+            // Fallback: Super Admin dapat semua menu
+            setAllowedMenus(menuItems.map(m => m.path));
+        }
     }, [pathname]);
 
     const handleLogout = () => {
         localStorage.removeItem("access_token");
         localStorage.removeItem("user_role");
+        localStorage.removeItem("allowed_menus");
         router.push("/login");
         router.refresh();
     };
 
     const menuItems = [
-        { name: "Beranda", path: "/", allowed: ["SUPER_ADMIN", "KASIR_KOP_PUSAT", "KASIR_KOP_LUAR", "KASIR_SYAHRIYAH", "PENGURUS_SANTRI", "PENGURUS_SEKOLAH", "GURU_BP", "PENGURUS_KEAMANAN"] },
-        { name: "Data Santri", path: "/santri", allowed: ["SUPER_ADMIN"] },
-        { name: "Live Monitor RFID", path: "/monitor", allowed: ["SUPER_ADMIN", "PENGURUS_KEAMANAN"] },
-        { name: "📍 Monitor Absensi", path: "/absensi", allowed: ["SUPER_ADMIN", "PENGURUS_SANTRI", "PENGURUS_SEKOLAH", "PENGURUS_KEAMANAN"] },
-        { name: "🔧 Kelola Alat RFID", path: "/absensi/devices", allowed: ["SUPER_ADMIN"] },
-        { name: "Jurnal Tahfidz", path: "/tahfidz", allowed: ["SUPER_ADMIN", "PENGURUS_SANTRI"] },
-        { name: "Koperasi & E-Money", path: "/keuangan/emoney", allowed: ["SUPER_ADMIN", "KASIR_KOP_PUSAT", "KASIR_KOP_LUAR"] },
-        { name: "💸 Pengeluaran Kas", path: "/keuangan/pengeluaran", allowed: ["SUPER_ADMIN", "KASIR_KOP_PUSAT", "KASIR_SYAHRIYAH_PUTRA", "KASIR_SYAHRIYAH_PUTRI"] },
-        { name: "📋 Manajemen Iuran", path: "/keuangan/iuran", allowed: ["SUPER_ADMIN", "KASIR_SYAHRIYAH_PUTRA", "KASIR_SYAHRIYAH_PUTRI"] },
-        { name: "📊 Laporan Iuran", path: "/keuangan/iuran/laporan", allowed: ["SUPER_ADMIN", "KASIR_SYAHRIYAH_PUTRA", "KASIR_SYAHRIYAH_PUTRI"] },
-        { name: "👨‍🏫 Data Guru", path: "/guru", allowed: ["SUPER_ADMIN", "PENGURUS_SEKOLAH"] },
-        { name: "⚖️ Kedisiplinan", path: "/kedisiplinan", allowed: ["SUPER_ADMIN", "PENGURUS_SANTRI", "GURU_BP", "PENGURUS_KEAMANAN"] },
-        { name: "🏥 Klinik Kesehatan", path: "/kesehatan", allowed: ["SUPER_ADMIN", "PENGURUS_SANTRI"] },
-        { name: "🏆 Bintang Prestasi", path: "/ranking", allowed: ["SUPER_ADMIN", "PENGURUS_SANTRI", "PENGURUS_SEKOLAH"] },
-        { name: "📸 Galeri Kegiatan", path: "/galeri", allowed: ["SUPER_ADMIN", "PENGURUS_SANTRI", "PENGURUS_SEKOLAH"] },
-        { name: "🖨️ Laporan Bulanan", path: "/laporan", allowed: ["SUPER_ADMIN"] },
-        { name: "📊 Laporan Keuangan", path: "/laporan-keuangan", allowed: ["SUPER_ADMIN", "KASIR_KOP_PUSAT"] },
-        { name: "👤 Manajemen Pengguna", path: "/pengguna", allowed: ["SUPER_ADMIN"] },
+        { name: "Beranda", path: "/" },
+        { name: "Data Santri", path: "/santri" },
+        { name: "Live Monitor RFID", path: "/monitor" },
+        { name: "📍 Monitor Absensi", path: "/absensi" },
+        { name: "🔧 Kelola Alat RFID", path: "/absensi/devices" },
+        { name: "Jurnal Tahfidz", path: "/tahfidz" },
+        { name: "Koperasi & E-Money", path: "/keuangan/emoney" },
+        { name: "💸 Pengeluaran Kas", path: "/keuangan/pengeluaran" },
+        { name: "📋 Manajemen Iuran", path: "/keuangan/iuran" },
+        { name: "📊 Laporan Iuran", path: "/keuangan/iuran/laporan" },
+        { name: "👨‍🏫 Data Guru", path: "/guru" },
+        { name: "⚖️ Kedisiplinan", path: "/kedisiplinan" },
+        { name: "🏥 Klinik Kesehatan", path: "/kesehatan" },
+        { name: "🏆 Bintang Prestasi", path: "/ranking" },
+        { name: "📸 Galeri Kegiatan", path: "/galeri" },
+        { name: "🖨️ Laporan Bulanan", path: "/laporan" },
+        { name: "📊 Laporan Keuangan", path: "/laporan-keuangan" },
+        { name: "👤 Manajemen Pengguna", path: "/pengguna" },
+        { name: "⚙️ Hak Akses Role", path: "/pengguna/hak-akses" },
     ];
 
-    const filteredMenus = menuItems.filter(item => item.allowed.includes(role));
+    // Super Admin selalu dapat semua menu, role lain filter dari allowedMenus
+    const filteredMenus = role === "SUPER_ADMIN"
+        ? menuItems
+        : menuItems.filter(item => allowedMenus.includes(item.path));
 
     return (
         <>
