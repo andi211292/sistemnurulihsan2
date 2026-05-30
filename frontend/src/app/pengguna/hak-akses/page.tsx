@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Sidebar from "@/components/Sidebar";
 import Navbar from "@/components/Navbar";
+import { apiFetch } from "@/utils/api";
 
 // Definisikan tipe dan daftar role (sama dengan pengguna page)
 const ROLE_OPTIONS = [
@@ -43,8 +44,8 @@ export default function HakAksesPage() {
     setLoading(true);
     try {
       const [menusRes, permsRes] = await Promise.all([
-        fetch("/api/permissions/menus"),
-        fetch("/api/permissions")
+        apiFetch("/api/permissions/menus"),
+        apiFetch("/api/permissions")
       ]);
 
       if (menusRes.ok && permsRes.ok) {
@@ -90,7 +91,7 @@ export default function HakAksesPage() {
         }))
       };
 
-      const res = await fetch("/api/permissions", {
+      const res = await apiFetch("/api/permissions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
