@@ -90,7 +90,7 @@ class AbsensiTapRequest(BaseModel):
 class DeviceSchema(BaseModel):
     device_id: str
     nama_lokasi: str
-    tipe_sesi: str       # nilai dari AttendanceTypeEnum
+    tipe_sesi: Optional[str] = None       # nilai dari AttendanceTypeEnum
     jam_mulai: int = 0
     jam_selesai: int = 23
     is_active: bool = True
