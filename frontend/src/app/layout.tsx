@@ -1,13 +1,10 @@
 "use client";
 
-import { Inter } from "next/font/google";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
 import Navbar from "@/components/Navbar";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-
-const inter = Inter({ subsets: ["latin"] });
 
 export default function RootLayout({
   children,
@@ -46,7 +43,7 @@ export default function RootLayout({
       <head>
         <title>Admin - Sistem Manajemen Pondok Pesantren Nurul Ihsan</title>
       </head>
-      <body className={`${inter.className} bg-gray-50 text-gray-900 font-sans antialiased ${isLogin ? 'min-h-screen' : ''}`}>
+      <body className={`bg-gray-50 text-gray-900 font-sans antialiased ${isLogin ? 'min-h-screen' : ''}`}>
         {isAuthChecking ? (
           <div className="flex items-center justify-center min-h-screen">
             <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
