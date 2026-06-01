@@ -344,31 +344,71 @@ def get_rekap_per_santri(
     start = datetime.combine(target_date, dt.time.min)
     end   = datetime.combine(target_date, dt.time.max)
 
-    q = db.query(models.Attendance, models.Student).join(
-        models.Student,
-        models.Attendance.student_id == models.Student.student_id
-    ).filter(
+    # Jika filter sesi tidak ada, tampilkan log absensi (hanya yang sudah hadir/izin)
+    if not sesi:
+        q = db.query(models.Attendance, models.Student).join(
+            models.Student,
+            models.Attendance.student_id == models.Student.student_id
+        ).filter(
+            models.Attendance.timestamp >= start,
+            models.Attendance.timestamp <= end,
+        )
+        if gender:
+            q = q.filter(models.Student.gender == models.GenderEnum(gender.upper()))
+    
+        rows = q.order_by(models.Student.student_class, models.Student.full_name).all()
+        return [
+            {
+                "student_id": s.student_id,
+                "nama": s.full_name,
+                "kelas": s.student_class,
+                "sesi": a.sesi,
+                "status": a.status.value,
+                "device_id": a.device_id,
+                "waktu": a.timestamp.strftime("%H:%M:%S"),
+            }
+            for a, s in rows
+        ]
+
+    # Jika ada filter sesi, tampilkan seluruh santri (yang tidak absen dianggap ALPA)
+    q_stu = db.query(models.Student)
+    if gender:
+        q_stu = q_stu.filter(models.Student.gender == models.GenderEnum(gender.upper()))
+    students = q_stu.order_by(models.Student.student_class, models.Student.full_name).all()
+
+    q_att = db.query(models.Attendance).filter(
         models.Attendance.timestamp >= start,
         models.Attendance.timestamp <= end,
+        models.Attendance.sesi == sesi
     )
-    if sesi:
-        q = q.filter(models.Attendance.sesi == sesi)
-    if gender:
-        q = q.filter(models.Student.gender == models.GenderEnum(gender.upper()))
+    attendances = q_att.all()
+    att_map = {a.student_id: a for a in attendances}
 
-    rows = q.order_by(models.Student.student_class, models.Student.full_name).all()
-    return [
-        {
-            "student_id": s.student_id,
-            "nama": s.full_name,
-            "kelas": s.student_class,
-            "sesi": a.sesi,
-            "status": a.status.value,
-            "device_id": a.device_id,
-            "waktu": a.timestamp.strftime("%H:%M:%S"),
-        }
-        for a, s in rows
-    ]
+    result = []
+    for s in students:
+        a = att_map.get(s.student_id)
+        if a:
+            result.append({
+                "student_id": s.student_id,
+                "nama": s.full_name,
+                "kelas": s.student_class,
+                "sesi": a.sesi,
+                "status": a.status.value,
+                "device_id": a.device_id,
+                "waktu": a.timestamp.strftime("%H:%M:%S"),
+            })
+        else:
+            result.append({
+                "student_id": s.student_id,
+                "nama": s.full_name,
+                "kelas": s.student_class,
+                "sesi": sesi,
+                "status": "ALPA",
+                "device_id": "-",
+                "waktu": "-",
+            })
+
+    return result
 
 
 # ─────────────────────────────────────────────
