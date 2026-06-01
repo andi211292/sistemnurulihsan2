@@ -22,14 +22,7 @@ export default function LoginPage() {
             formData.append("username", username);
             formData.append("password", password);
 
-            const getBaseUrl = () => {
-                if (typeof window !== "undefined") {
-                    return `${window.location.protocol}//${window.location.hostname}:8080`;
-                }
-                return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-            };
-            const baseUrl = getBaseUrl();
-            const res = await fetch(`${baseUrl}/api/auth/login`, {
+            const res = await fetch(`/api/auth/login`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/x-www-form-urlencoded",
@@ -53,7 +46,7 @@ export default function LoginPage() {
 
             // Fetch & cache hak akses menu untuk role ini
             try {
-                const permRes = await fetch(`${baseUrl}/api/permissions/my-role`, {
+                const permRes = await fetch(`/api/permissions/my-role`, {
                     headers: { "Authorization": `Bearer ${data.access_token}` }
                 });
                 if (permRes.ok) {
