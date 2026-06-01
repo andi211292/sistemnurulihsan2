@@ -94,6 +94,7 @@ class DeviceSchema(BaseModel):
     jam_mulai: int = 0
     jam_selesai: int = 23
     is_active: bool = True
+    allowed_classes: Optional[str] = None
 
 
 # ─────────────────────────────────────────────
@@ -124,6 +125,20 @@ def absensi_tap(request: AbsensiTapRequest, db: Session = Depends(get_db)):
         }
 
     nama = student.full_name
+
+    # Cek batas akses kelas pada device
+    if request.device_id:
+        device_record = db.query(models.AttendanceDevice).filter(models.AttendanceDevice.device_id == request.device_id).first()
+        if device_record and device_record.allowed_classes:
+            allowed = [c.strip() for c in device_record.allowed_classes.split(',') if c.strip()]
+            if allowed and student.student_class not in allowed:
+                return {
+                    "success": False,
+                    "status": "ditolak",
+                    "nama": nama,
+                    "message": f"Ditolak: Alat bukan untuk {student.student_class}",
+                    "uid": uid
+                }
 
     # 2. Tentukan sesi dari jadwal device (per menit) atau dari clock sebagai fallback
     sesi_aktif = None
@@ -432,6 +447,7 @@ def list_devices(db: Session = Depends(get_db)):
             "device_id":   d.device_id,
             "nama_lokasi": d.nama_lokasi,
             "is_active":   d.is_active,
+            "allowed_classes": d.allowed_classes or "",
             "jadwal_sesi": [
                 {
                     "id":          j.id,
@@ -455,11 +471,13 @@ def upsert_device(data: DeviceSchema, db: Session = Depends(get_db)):
     if device:
         device.nama_lokasi = data.nama_lokasi
         device.is_active   = data.is_active
+        device.allowed_classes = data.allowed_classes
     else:
         device = models.AttendanceDevice(
             device_id   = data.device_id,
             nama_lokasi = data.nama_lokasi,
             is_active   = data.is_active,
+            allowed_classes = data.allowed_classes,
         )
         db.add(device)
 

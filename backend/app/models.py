@@ -121,6 +121,7 @@ class AttendanceDevice(Base):
     device_id   = Column(String, unique=True, index=True)  # contoh: "ESP32-MASJID-01"
     nama_lokasi = Column(String)                           # contoh: "Masjid Utama"
     is_active   = Column(Boolean, default=True)
+    allowed_classes = Column(String, nullable=True)        # KOMA DIPISAHKAN
     # Legacy columns (dipertahankan agar tidak break data lama)
     tipe_sesi   = Column(String, nullable=True)
     jam_mulai   = Column(Integer, default=0)

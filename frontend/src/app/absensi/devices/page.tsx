@@ -30,10 +30,11 @@ interface Device {
     device_id: string;
     nama_lokasi: string;
     is_active: boolean;
+    allowed_classes?: string;
     jadwal_sesi: JadwalSesi[];
 }
 
-const emptyDevice = { device_id: "", nama_lokasi: "", is_active: true };
+const emptyDevice = { device_id: "", nama_lokasi: "", is_active: true, allowed_classes: "" };
 const emptySesi = { tipe_sesi: "SHALAT_SUBUH", jam_mulai: "05:30", jam_selesai: "05:55", is_active: true };
 
 export default function DevicesPage() {
@@ -116,36 +117,47 @@ export default function DevicesPage() {
             {/* Form tambah/edit device */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4">
                 <h2 className="font-semibold text-gray-700 mb-4">{editId ? `Edit: ${editId}` : "➕ Tambah Alat Baru"}</h2>
-                <form onSubmit={handleDeviceSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">Device ID (unik)</label>
-                        <input required value={devForm.device_id} disabled={!!editId}
-                            onChange={e => setDevForm({ ...devForm, device_id: e.target.value })}
-                            placeholder="ESP32-MASJID-01"
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm disabled:bg-gray-50" />
+                <form onSubmit={handleDeviceSubmit} className="flex flex-col gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Device ID (unik)</label>
+                            <input required value={devForm.device_id} disabled={!!editId}
+                                onChange={e => setDevForm({ ...devForm, device_id: e.target.value })}
+                                placeholder="ESP32-MASJID-01"
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm disabled:bg-gray-50" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-1">Nama Lokasi</label>
+                            <input required value={devForm.nama_lokasi}
+                                onChange={e => setDevForm({ ...devForm, nama_lokasi: e.target.value })}
+                                placeholder="Masjid Utama"
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm" />
+                        </div>
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">Nama Lokasi</label>
-                        <input required value={devForm.nama_lokasi}
-                            onChange={e => setDevForm({ ...devForm, nama_lokasi: e.target.value })}
-                            placeholder="Masjid Utama"
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Batasan Kelas (pisahkan koma)</label>
+                        <input value={devForm.allowed_classes || ""}
+                            onChange={e => setDevForm({ ...devForm, allowed_classes: e.target.value })}
+                            placeholder="Contoh: Al- Imrithi, Jurrumiyah (kosongkan untuk semua kelas)"
                             className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm" />
                     </div>
-                    <div className="flex items-end gap-2">
+                    <div className="flex items-center gap-4 mt-2">
                         <label className="flex items-center gap-2 text-sm text-gray-600">
                             <input type="checkbox" checked={devForm.is_active}
                                 onChange={e => setDevForm({ ...devForm, is_active: e.target.checked })}
                                 className="rounded" />
                             Aktif
                         </label>
-                        <button type="submit" disabled={loading}
-                            className="flex-1 py-2.5 font-semibold text-white rounded-lg bg-emerald-500 hover:bg-emerald-600 text-sm disabled:opacity-50">
-                            {editId ? "💾 Update" : "➕ Tambah"}
-                        </button>
-                        {editId && (
-                            <button type="button" onClick={() => { setDevForm({ ...emptyDevice }); setEditId(null); }}
-                                className="px-3 py-2.5 text-sm text-gray-500 border border-gray-200 rounded-lg">Batal</button>
-                        )}
+                        <div className="flex-1 flex gap-2">
+                            <button type="submit" disabled={loading}
+                                className="flex-1 py-2.5 font-semibold text-white rounded-lg bg-emerald-500 hover:bg-emerald-600 text-sm disabled:opacity-50">
+                                {editId ? "💾 Update" : "➕ Tambah"}
+                            </button>
+                            {editId && (
+                                <button type="button" onClick={() => { setDevForm({ ...emptyDevice }); setEditId(null); }}
+                                    className="px-4 py-2.5 text-sm text-gray-500 border border-gray-200 rounded-lg">Batal</button>
+                            )}
+                        </div>
                     </div>
                 </form>
             </div>
@@ -167,9 +179,14 @@ export default function DevicesPage() {
                                 <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${d.is_active ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
                                     {d.is_active ? "Aktif" : "Nonaktif"}
                                 </span>
+                                {d.allowed_classes && (
+                                    <span className="ml-2 text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100" title="Terbatas untuk kelas tertentu">
+                                        🔒 {d.allowed_classes}
+                                    </span>
+                                )}
                             </div>
                             <div className="flex gap-2">
-                                <button onClick={() => { setDevForm({ device_id: d.device_id, nama_lokasi: d.nama_lokasi, is_active: d.is_active }); setEditId(d.device_id); }}
+                                <button onClick={() => { setDevForm({ device_id: d.device_id, nama_lokasi: d.nama_lokasi, is_active: d.is_active, allowed_classes: d.allowed_classes || "" }); setEditId(d.device_id); }}
                                     className="text-xs text-blue-500 hover:underline">Edit</button>
                                 <button onClick={() => handleDeleteDevice(d.device_id)}
                                     className="text-xs text-red-500 hover:underline">Hapus</button>
