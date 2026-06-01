@@ -141,6 +141,7 @@ class AttendanceDeviceSesi(Base):
     jam_mulai    = Column(String)     # "05:30" format HH:MM
     jam_selesai  = Column(String)     # "05:55" format HH:MM
     is_active    = Column(Boolean, default=True)
+    allowed_classes = Column(String, nullable=True)        # Batasan kelas untuk sesi ini
 
     device = relationship("AttendanceDevice", back_populates="jadwal_sesi")
 

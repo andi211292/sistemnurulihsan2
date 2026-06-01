@@ -61,7 +61,7 @@ def get_sesi_dari_device(device_id: str, db):
         mulai   = hhmm_to_minutes(jadwal.jam_mulai)
         selesai = hhmm_to_minutes(jadwal.jam_selesai)
         if mulai <= now_minutes <= selesai:
-            return (jadwal.tipe_sesi, True)
+            return (jadwal, True)
 
     return (None, punya_jadwal)
 
@@ -94,7 +94,6 @@ class DeviceSchema(BaseModel):
     jam_mulai: int = 0
     jam_selesai: int = 23
     is_active: bool = True
-    allowed_classes: Optional[str] = None
 
 
 # ─────────────────────────────────────────────
@@ -126,22 +125,9 @@ def absensi_tap(request: AbsensiTapRequest, db: Session = Depends(get_db)):
 
     nama = student.full_name
 
-    # Cek batas akses kelas pada device
-    if request.device_id:
-        device_record = db.query(models.AttendanceDevice).filter(models.AttendanceDevice.device_id == request.device_id).first()
-        if device_record and device_record.allowed_classes:
-            allowed = [c.strip() for c in device_record.allowed_classes.split(',') if c.strip()]
-            if allowed and student.student_class not in allowed:
-                return {
-                    "success": False,
-                    "status": "ditolak",
-                    "nama": nama,
-                    "message": f"Ditolak: Alat bukan untuk {student.student_class}",
-                    "uid": uid
-                }
-
     # 2. Tentukan sesi dari jadwal device (per menit) atau dari clock sebagai fallback
     sesi_aktif = None
+    jadwal_aktif = None
     if request.device_id:
         sesi_dari_db, punya_jadwal = get_sesi_dari_device(request.device_id, db)
 
@@ -156,7 +142,21 @@ def absensi_tap(request: AbsensiTapRequest, db: Session = Depends(get_db)):
                 "waktu": now_str
             }
 
-        sesi_aktif = sesi_dari_db  # None jika tidak punya jadwal sama sekali
+        if sesi_dari_db:
+            sesi_aktif = sesi_dari_db.tipe_sesi
+            jadwal_aktif = sesi_dari_db
+            
+            # Cek batas akses kelas pada jadwal sesi ini
+            if jadwal_aktif.allowed_classes:
+                allowed = [c.strip() for c in jadwal_aktif.allowed_classes.split(',') if c.strip()]
+                if allowed and student.student_class not in allowed:
+                    return {
+                        "success": False,
+                        "status": "ditolak",
+                        "nama": nama,
+                        "message": f"Ditolak: Sesi {sesi_aktif} bukan untuk {student.student_class}",
+                        "uid": uid
+                    }
 
     if not sesi_aktif:
         # Fallback: hanya berlaku untuk device TANPA jadwal terdaftar
@@ -435,6 +435,7 @@ class SesiSchema(BaseModel):
     jam_mulai:   str    # "05:30"
     jam_selesai: str    # "05:55"
     is_active:   bool = True
+    allowed_classes: Optional[str] = None
 
 @router.get("/devices")
 def list_devices(db: Session = Depends(get_db)):
@@ -447,7 +448,6 @@ def list_devices(db: Session = Depends(get_db)):
             "device_id":   d.device_id,
             "nama_lokasi": d.nama_lokasi,
             "is_active":   d.is_active,
-            "allowed_classes": d.allowed_classes or "",
             "jadwal_sesi": [
                 {
                     "id":          j.id,
@@ -455,6 +455,7 @@ def list_devices(db: Session = Depends(get_db)):
                     "jam_mulai":   j.jam_mulai,
                     "jam_selesai": j.jam_selesai,
                     "is_active":   j.is_active,
+                    "allowed_classes": j.allowed_classes or "",
                 }
                 for j in d.jadwal_sesi
             ]
@@ -471,13 +472,11 @@ def upsert_device(data: DeviceSchema, db: Session = Depends(get_db)):
     if device:
         device.nama_lokasi = data.nama_lokasi
         device.is_active   = data.is_active
-        device.allowed_classes = data.allowed_classes
     else:
         device = models.AttendanceDevice(
             device_id   = data.device_id,
             nama_lokasi = data.nama_lokasi,
             is_active   = data.is_active,
-            allowed_classes = data.allowed_classes,
         )
         db.add(device)
 
@@ -512,6 +511,7 @@ def add_sesi(device_id: str, data: SesiSchema, db: Session = Depends(get_db)):
         jam_mulai   = data.jam_mulai,
         jam_selesai = data.jam_selesai,
         is_active   = data.is_active,
+        allowed_classes = data.allowed_classes,
     )
     db.add(sesi)
     db.commit()
