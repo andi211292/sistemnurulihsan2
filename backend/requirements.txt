@@ -6,3 +6,5 @@ python-dotenv
 psycopg2-binary
 openpyxl
 python-multipart
+python-jose[cryptography]
+passlib[bcrypt]
