@@ -483,6 +483,12 @@ def get_rekap_per_santri(
                 "waktu": "-",
             })
 
+    def get_status_priority(status: str) -> int:
+        mapping = {"HADIR": 1, "IZIN": 2, "SAKIT": 3, "ALPA": 4}
+        return mapping.get(status, 99)
+
+    result.sort(key=lambda x: (get_status_priority(x["status"]), x["kelas"], x["nama"]))
+
     return result
 
 
