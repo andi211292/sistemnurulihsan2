@@ -180,7 +180,8 @@ export default function SantriPage() {
                 "Kelas_Sekolah": 8,
                 "Asrama": "Gedung Baru",
                 "Gender": "PUTRA",
-                "UID_RFID": "4265130963"
+                "UID_RFID": "4265130963",
+                "Status": "AKTIF"
             },
             {
                 "NIS": "12346",
@@ -190,7 +191,8 @@ export default function SantriPage() {
                 "Kelas_Sekolah": 10,
                 "Asrama": "Gedung Putri",
                 "Gender": "PUTRI",
-                "UID_RFID": ""
+                "UID_RFID": "",
+                "Status": "AKTIF"
             }
         ];
 
