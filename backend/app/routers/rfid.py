@@ -35,6 +35,9 @@ def rfid_tap_makan(request: schemas.RFIDScanRequest, db: Session = Depends(get_d
     student = crud.get_student_by_rfid(db, rfid_uid=request.rfid_uid)
     if not student:
         raise HTTPException(status_code=404, detail="Kartu RFID tidak terdaftar")
+        
+    if student.status != models.StudentStatusEnum.AKTIF:
+        raise HTTPException(status_code=400, detail=f"Santri berstatus {student.status.value}")
 
     # 2. Determine MealType based on current time
     current_meal_type = determine_meal_type()
@@ -59,6 +62,9 @@ def rfid_tap_hadir(request: schemas.RFIDAttendanceRequest, db: Session = Depends
     student = crud.get_student_by_rfid(db, rfid_uid=request.rfid_uid)
     if not student:
         raise HTTPException(status_code=404, detail="Kartu RFID tidak terdaftar")
+        
+    if student.status != models.StudentStatusEnum.AKTIF:
+        raise HTTPException(status_code=400, detail=f"Santri berstatus {student.status.value}")
 
     # 2. Record attendance
     # Default status present (HADIR) when tapping

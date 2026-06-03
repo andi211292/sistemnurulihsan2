@@ -41,6 +41,12 @@ class GenderEnum(str, enum.Enum):
     PUTRA = "PUTRA"
     PUTRI = "PUTRI"
 
+class StudentStatusEnum(str, enum.Enum):
+    AKTIF = "AKTIF"
+    LULUS = "LULUS"
+    PINDAH = "PINDAH"
+    BERHENTI = "BERHENTI"
+
 class Student(Base):
     __tablename__ = "students"
 
@@ -53,6 +59,7 @@ class Student(Base):
     tingkatan_diniyah = Column(String, nullable=True)      # Jurrumiyah, Imrithi, Alfiyah, dll
     dormitory = Column(String)
     gender = Column(SqlEnum(GenderEnum, name="gender_enum"), default=GenderEnum.PUTRA)
+    status = Column(SqlEnum(StudentStatusEnum, name="student_status_enum"), default=StudentStatusEnum.AKTIF)
     guardian_id = Column(Integer, ForeignKey("guardians.guardian_id"))
     batas_jajan_harian = Column(Integer, default=15000)
 

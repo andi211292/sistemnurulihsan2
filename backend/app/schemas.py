@@ -1,7 +1,7 @@
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 from datetime import datetime, date
-from .models import RoleEnum, TransactionTypeEnum, MealTypeEnum, AttendanceTypeEnum, AttendanceStatusEnum, GenderEnum, ExpenseFrequencyEnum, FeePeriodEnum, PaymentStatusEnum
+from .models import RoleEnum, TransactionTypeEnum, MealTypeEnum, AttendanceTypeEnum, AttendanceStatusEnum, GenderEnum, ExpenseFrequencyEnum, FeePeriodEnum, PaymentStatusEnum, StudentStatusEnum
 
 # --- User Schemas ---
 class UserBase(BaseModel):
@@ -29,6 +29,7 @@ class StudentBase(BaseModel):
     tingkatan_diniyah: Optional[str] = None
     dormitory: str
     gender: GenderEnum = GenderEnum.PUTRA
+    status: StudentStatusEnum = StudentStatusEnum.AKTIF
     batas_jajan_harian: Optional[int] = 15000
 
 class StudentCreate(StudentBase):

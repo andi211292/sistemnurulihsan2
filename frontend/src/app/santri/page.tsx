@@ -14,6 +14,7 @@ interface Student {
     tingkatan_diniyah?: string | null;
     dormitory: string;
     gender: "PUTRA" | "PUTRI";
+    status?: "AKTIF" | "LULUS" | "PINDAH" | "BERHENTI";
     batas_jajan_harian?: number;
 }
 
@@ -39,6 +40,7 @@ export default function SantriPage() {
         tingkatan_diniyah: "",
         dormitory: "",
         gender: "PUTRA" as "PUTRA" | "PUTRI",
+        status: "AKTIF" as "AKTIF" | "LULUS" | "PINDAH" | "BERHENTI",
         batas_jajan_harian: 15000,
     });
     const [formLoading, setFormLoading] = useState(false);
@@ -76,6 +78,7 @@ export default function SantriPage() {
             tingkatan_diniyah: "",
             dormitory: "",
             gender: "PUTRA",
+            status: "AKTIF",
             batas_jajan_harian: 15000,
         });
         setFormError(null);
@@ -94,6 +97,7 @@ export default function SantriPage() {
             tingkatan_diniyah: student.tingkatan_diniyah || "",
             dormitory: student.dormitory,
             gender: student.gender,
+            status: student.status || "AKTIF",
             batas_jajan_harian: student.batas_jajan_harian !== undefined && student.batas_jajan_harian !== null ? student.batas_jajan_harian : 15000,
         });
         setFormError(null);
@@ -211,6 +215,7 @@ export default function SantriPage() {
                 tingkatan_diniyah: formData.tingkatan_diniyah || null,
                 dormitory: formData.dormitory,
                 gender: formData.gender,
+                status: formData.status,
                 batas_jajan_harian: formData.batas_jajan_harian
             };
             if (modalMode === "add") {
@@ -338,6 +343,7 @@ export default function SantriPage() {
                                     <th className="px-6 py-4">Gender</th>
                                     <th className="px-6 py-4">Kelas</th>
                                     <th className="px-6 py-4">Asrama</th>
+                                    <th className="px-6 py-4 text-center">Status</th>
                                     <th className="px-6 py-4 text-center">Status RFID</th>
                                     <th className="px-6 py-4">Aksi</th>
                                 </tr>
@@ -351,6 +357,15 @@ export default function SantriPage() {
                                         <td className="px-6 py-4 font-semibold text-gray-600">{st.gender === "PUTRI" ? "🧕 Putri" : "👦 Putra"}</td>
                                         <td className="px-6 py-4">{st.student_class}</td>
                                         <td className="px-6 py-4">{st.dormitory}</td>
+                                        <td className="px-6 py-4 text-center">
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                                st.status === "AKTIF" ? "bg-emerald-100 text-emerald-800" :
+                                                st.status === "LULUS" ? "bg-blue-100 text-blue-800" :
+                                                "bg-gray-100 text-gray-800"
+                                            }`}>
+                                                {st.status || "AKTIF"}
+                                            </span>
+                                        </td>
                                         <td className="px-6 py-4 text-center">
                                             {st.rfid_uid ? (
                                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
@@ -430,6 +445,15 @@ export default function SantriPage() {
                                     <select value={formData.gender} onChange={e => setFormData({ ...formData, gender: e.target.value as "PUTRA" | "PUTRI" })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500">
                                         <option value="PUTRA">Putra</option>
                                         <option value="PUTRI">Putri</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Status Keaktifan</label>
+                                    <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value as any })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-emerald-500 focus:border-emerald-500">
+                                        <option value="AKTIF">Aktif</option>
+                                        <option value="LULUS">Lulus</option>
+                                        <option value="PINDAH">Pindah</option>
+                                        <option value="BERHENTI">Berhenti</option>
                                     </select>
                                 </div>
                                 <div>

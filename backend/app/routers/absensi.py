@@ -122,6 +122,14 @@ def absensi_tap(request: AbsensiTapRequest, db: Session = Depends(get_db)):
             "message": "Kartu tidak terdaftar",
             "uid": uid
         }
+        
+    if student.status != models.StudentStatusEnum.AKTIF:
+        return {
+            "success": False,
+            "status": "not_active",
+            "message": f"Santri {student.status.value}",
+            "uid": uid
+        }
 
     nama = student.full_name
 
@@ -280,8 +288,8 @@ def get_rekap_absensi(
     start = datetime.combine(target_date, dt.time.min)
     end   = datetime.combine(target_date, dt.time.max)
 
-    # Base query semua santri
-    students_q = db.query(models.Student)
+    # Base query semua santri aktif
+    students_q = db.query(models.Student).filter(models.Student.status == models.StudentStatusEnum.AKTIF)
     if gender:
         students_q = students_q.filter(
             models.Student.gender == models.GenderEnum(gender.upper())
@@ -414,8 +422,8 @@ def get_rekap_per_santri(
             for a, s in rows
         ]
 
-    # Jika ada filter sesi, tampilkan seluruh santri (yang tidak absen dianggap ALPA)
-    q_stu = db.query(models.Student)
+    # Jika ada filter sesi, tampilkan seluruh santri AKTIF (yang tidak absen dianggap ALPA)
+    q_stu = db.query(models.Student).filter(models.Student.status == models.StudentStatusEnum.AKTIF)
     if gender:
         q_stu = q_stu.filter(models.Student.gender == models.GenderEnum(gender.upper()))
         
