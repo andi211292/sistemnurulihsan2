@@ -419,17 +419,20 @@ def get_rekap_per_santri(
     if gender:
         q_stu = q_stu.filter(models.Student.gender == models.GenderEnum(gender.upper()))
         
-    if device_id:
+    if device_id or sesi:
         q_sesi = db.query(models.AttendanceDeviceSesi).filter(
-            models.AttendanceDeviceSesi.device_id == device_id,
             models.AttendanceDeviceSesi.is_active == True
         )
+        if device_id:
+            q_sesi = q_sesi.filter(models.AttendanceDeviceSesi.device_id == device_id)
         if sesi:
             q_sesi = q_sesi.filter(models.AttendanceDeviceSesi.tipe_sesi == sesi)
             
         sessions = q_sesi.all()
         allowed_set = set()
         has_unrestricted = False
+        
+        # Jika belum ada alat yang disetting untuk sesi/device ini, anggap terbuka untuk semua (unrestricted)
         if not sessions:
             has_unrestricted = True
         else:
