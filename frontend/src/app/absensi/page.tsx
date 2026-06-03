@@ -40,6 +40,11 @@ interface AbsensiDetail {
     waktu: string;
 }
 
+interface Device {
+    device_id: string;
+    nama_lokasi: string;
+}
+
 function ProgressBar({ hadir, izin, total }: { hadir: number; izin: number; total: number }) {
     if (total === 0) return <div className="h-2 bg-gray-100 rounded-full" />;
     const pHadir = (hadir / total) * 100;
@@ -91,6 +96,8 @@ function getLocalDateStr() {
 export default function AbsensiPage() {
     const [tanggal, setTanggal] = useState(getLocalDateStr);
     const [gender, setGender] = useState("");
+    const [deviceId, setDeviceId] = useState("");
+    const [devices, setDevices] = useState<Device[]>([]);
     const [rekap, setRekap] = useState<RekapData | null>(null);
     const [detail, setDetail] = useState<AbsensiDetail[]>([]);
     const [sesiFilter, setSesiFilter] = useState("");
@@ -101,6 +108,7 @@ export default function AbsensiPage() {
         try {
             const params = new URLSearchParams({ tanggal });
             if (gender) params.append("gender", gender);
+            if (deviceId) params.append("device_id", deviceId);
             const res = await apiFetch(`${API_URL}/api/absensi/rekap?${params}`);
             if (res.ok) setRekap(await res.json());
         } finally {
@@ -111,11 +119,18 @@ export default function AbsensiPage() {
     const loadDetail = useCallback(async () => {
         const params = new URLSearchParams({ tanggal });
         if (gender) params.append("gender", gender);
+        if (deviceId) params.append("device_id", deviceId);
         if (sesiFilter) params.append("sesi", sesiFilter);
         const res = await apiFetch(`${API_URL}/api/absensi/rekap/santri?${params}`);
         if (res.ok) setDetail(await res.json());
-    }, [tanggal, gender, sesiFilter]);
+    }, [tanggal, gender, deviceId, sesiFilter]);
 
+    const loadDevices = useCallback(async () => {
+        const res = await apiFetch(`${API_URL}/api/absensi/devices`);
+        if (res.ok) setDevices(await res.json());
+    }, []);
+
+    useEffect(() => { loadDevices(); }, [loadDevices]);
     useEffect(() => { loadRekap(); }, [loadRekap]);
     useEffect(() => { loadDetail(); }, [loadDetail]);
 
@@ -154,9 +169,16 @@ export default function AbsensiPage() {
                     />
                     <select value={gender} onChange={e => setGender(e.target.value)}
                         className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                        <option value="">Semua</option>
+                        <option value="">Semua Gender</option>
                         <option value="PUTRA">Putra</option>
                         <option value="PUTRI">Putri</option>
+                    </select>
+                    <select value={deviceId} onChange={e => setDeviceId(e.target.value)}
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm max-w-xs truncate">
+                        <option value="">Semua Alat</option>
+                        {devices.map(d => (
+                            <option key={d.device_id} value={d.device_id}>{d.device_id} - {d.nama_lokasi}</option>
+                        ))}
                     </select>
                     <button onClick={() => { loadRekap(); loadDetail(); }}
                         className="bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-600">

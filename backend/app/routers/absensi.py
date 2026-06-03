@@ -261,6 +261,7 @@ def absensi_tap(request: AbsensiTapRequest, db: Session = Depends(get_db)):
 def get_rekap_absensi(
     tanggal: Optional[str] = None,   # "2026-03-07", default hari ini
     gender: Optional[str] = None,    # "PUTRA" / "PUTRI"
+    device_id: Optional[str] = None, # Filter per alat
     db: Session = Depends(get_db)
 ):
     """
@@ -285,6 +286,28 @@ def get_rekap_absensi(
         students_q = students_q.filter(
             models.Student.gender == models.GenderEnum(gender.upper())
         )
+        
+    if device_id:
+        sessions = db.query(models.AttendanceDeviceSesi).filter(
+            models.AttendanceDeviceSesi.device_id == device_id,
+            models.AttendanceDeviceSesi.is_active == True
+        ).all()
+        
+        allowed_set = set()
+        has_unrestricted = False
+        if not sessions:
+            has_unrestricted = True
+        else:
+            for s in sessions:
+                if not s.allowed_classes:
+                    has_unrestricted = True
+                    break
+                classes = [c.strip() for c in s.allowed_classes.split(',') if c.strip()]
+                allowed_set.update(classes)
+                
+        if not has_unrestricted:
+            students_q = students_q.filter(models.Student.student_class.in_(list(allowed_set)))
+
     all_students = students_q.all()
     total = len(all_students)
 
@@ -293,6 +316,9 @@ def get_rekap_absensi(
         models.Attendance.timestamp >= start,
         models.Attendance.timestamp <= end,
     )
+    if device_id:
+        att_q = att_q.filter(models.Attendance.device_id == device_id)
+        
     all_att = att_q.all()
 
     def hitung_kategori(sesi_list: list):
@@ -349,6 +375,7 @@ def get_rekap_per_santri(
     tanggal: Optional[str] = None,
     sesi: Optional[str] = None,
     gender: Optional[str] = None,
+    device_id: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     if tanggal:
@@ -370,6 +397,8 @@ def get_rekap_per_santri(
         )
         if gender:
             q = q.filter(models.Student.gender == models.GenderEnum(gender.upper()))
+        if device_id:
+            q = q.filter(models.Attendance.device_id == device_id)
     
         rows = q.order_by(models.Student.student_class, models.Student.full_name).all()
         return [
@@ -389,6 +418,31 @@ def get_rekap_per_santri(
     q_stu = db.query(models.Student)
     if gender:
         q_stu = q_stu.filter(models.Student.gender == models.GenderEnum(gender.upper()))
+        
+    if device_id:
+        q_sesi = db.query(models.AttendanceDeviceSesi).filter(
+            models.AttendanceDeviceSesi.device_id == device_id,
+            models.AttendanceDeviceSesi.is_active == True
+        )
+        if sesi:
+            q_sesi = q_sesi.filter(models.AttendanceDeviceSesi.tipe_sesi == sesi)
+            
+        sessions = q_sesi.all()
+        allowed_set = set()
+        has_unrestricted = False
+        if not sessions:
+            has_unrestricted = True
+        else:
+            for s in sessions:
+                if not s.allowed_classes:
+                    has_unrestricted = True
+                    break
+                classes = [c.strip() for c in s.allowed_classes.split(',') if c.strip()]
+                allowed_set.update(classes)
+                
+        if not has_unrestricted:
+            q_stu = q_stu.filter(models.Student.student_class.in_(list(allowed_set)))
+
     students = q_stu.order_by(models.Student.student_class, models.Student.full_name).all()
 
     q_att = db.query(models.Attendance).filter(
@@ -396,6 +450,9 @@ def get_rekap_per_santri(
         models.Attendance.timestamp <= end,
         models.Attendance.sesi == sesi
     )
+    if device_id:
+        q_att = q_att.filter(models.Attendance.device_id == device_id)
+        
     attendances = q_att.all()
     att_map = {a.student_id: a for a in attendances}
 
