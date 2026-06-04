@@ -141,6 +141,7 @@ async def import_students_csv(file: UploadFile = File(...), db: Session = Depend
             dormitory = row_lower.get('asrama')
             gender = row_lower.get('gender')
             rfid_uid = row_lower.get('uid_rfid')
+            status = row_lower.get('status')
             
             if nis and full_name and student_class and dormitory:
                 if gender:
@@ -158,7 +159,8 @@ async def import_students_csv(file: UploadFile = File(...), db: Session = Depend
                     student_class=str(student_class).strip(),
                     dormitory=str(dormitory).strip(),
                     gender=gender,
-                    rfid_uid=rfid_uid_val
+                    rfid_uid=rfid_uid_val,
+                    status=str(status).strip().upper() if status else "AKTIF"
                 )
                 students_payload.append(st)
                 
@@ -205,6 +207,7 @@ async def import_students_excel(file: UploadFile = File(...), db: Session = Depe
             rfid_uid = row_dict.get('uid_rfid')
             tingkatan_diniyah = row_dict.get('tingkatan_diniyah')
             kelas_sekolah_raw = row_dict.get('kelas_sekolah')
+            status = row_dict.get('status')
             kelas_sekolah = int(kelas_sekolah_raw) if kelas_sekolah_raw and str(kelas_sekolah_raw).isdigit() else None
 
             if nis and full_name and student_class and dormitory:
@@ -223,7 +226,8 @@ async def import_students_excel(file: UploadFile = File(...), db: Session = Depe
                     kelas_sekolah=kelas_sekolah,
                     dormitory=dormitory,
                     gender=gender,
-                    rfid_uid=rfid_uid
+                    rfid_uid=rfid_uid,
+                    status=str(status).strip().upper() if status else "AKTIF"
                 )
                 students_payload.append(st)
 
