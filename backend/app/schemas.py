@@ -431,6 +431,7 @@ class FeeDefinitionCreate(FeeDefinitionBase):
 
 class FeeDefinitionUpdate(BaseModel):
     nama_iuran: Optional[str] = None
+    tipe_periode: Optional[FeePeriodEnum] = None
     nominal: Optional[float] = None
     kategori_dana: Optional[str] = None
     is_active: Optional[bool] = None
