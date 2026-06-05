@@ -300,22 +300,22 @@ export default function KesehatanPage() {
                                                         </div>
                                                         
                                                         {/* Action Buttons */}
-                                                        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                             {!r.is_recovered && (
                                                                 <button 
                                                                     onClick={() => markAsRecovered(r.medical_id)} 
-                                                                    className="p-1.5 bg-white border shadow-sm rounded-md text-emerald-600 hover:bg-emerald-50"
+                                                                    className="px-3 py-1.5 bg-emerald-500 shadow-md rounded-lg text-white hover:bg-emerald-600 font-bold flex items-center gap-1 transition-colors"
                                                                     title="Tandai Sembuh"
                                                                 >
-                                                                    <span className="material-icons text-sm block">healing</span>
+                                                                    <span className="material-icons text-sm">healing</span> Sembuh
                                                                 </button>
                                                             )}
                                                             <button 
                                                                 onClick={() => startUpdate(r)} 
-                                                                className="p-1.5 bg-white border shadow-sm rounded-md text-sky-600 hover:bg-sky-50"
+                                                                className="px-3 py-1.5 bg-sky-500 shadow-md rounded-lg text-white hover:bg-sky-600 font-bold flex items-center gap-1 transition-colors"
                                                                 title="Update Diagnosa / Obat"
                                                             >
-                                                                <span className="material-icons text-sm block">edit_note</span>
+                                                                <span className="material-icons text-sm">edit_note</span> Edit
                                                             </button>
                                                         </div>
                                                     </div>

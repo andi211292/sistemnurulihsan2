@@ -42,6 +42,7 @@ export default function RootLayout({
     <html lang="id">
       <head>
         <title>Admin - Sistem Manajemen Pondok Pesantren Nurul Ihsan</title>
+        <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
       </head>
       <body className={`bg-gray-50 text-gray-900 font-sans antialiased ${isLogin ? 'min-h-screen' : ''}`}>
         {isAuthChecking ? (
