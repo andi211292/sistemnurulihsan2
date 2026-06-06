@@ -68,6 +68,10 @@ export default function ManajemenIuranPage() {
     // Checked items (from Tagihan + Custom Cart)
     const [checkedTagihan, setCheckedTagihan] = useState<Set<number>>(new Set());
     const [checkedCustom, setCheckedCustom] = useState<Set<number>>(new Set()); // index base
+    
+    // Partial Payments (Cicil) tracking
+    const [payAmounts, setPayAmounts] = useState<Record<number, number>>({});
+    const [customPayAmounts, setCustomPayAmounts] = useState<Record<number, number>>({});
 
     const [payDate, setPayDate] = useState(new Date().toISOString().split("T")[0]);
     const [payStatus, setPayStatus] = useState("LUNAS");
@@ -144,6 +148,8 @@ export default function ManajemenIuranPage() {
             setCheckedTagihan(new Set());
             setCheckedCustom(new Set());
             setCustomCart([]);
+            setPayAmounts({});
+            setCustomPayAmounts({});
         } else {
             setTagihanList([]);
         }
@@ -201,13 +207,14 @@ export default function ManajemenIuranPage() {
         for (const tId of Array.from(checkedTagihan)) {
             const t = tagihanList.find(x => x.payment_id === tId);
             if (t) {
+                const bayarSekarang = payAmounts[tId] || t.sisa_tagihan;
                 payloads.push({
                     student_id: selectedStudent.student_id,
                     fee_definition_id: t.fee_definition.id,
                     periode_label: t.periode_label,
-                    nominal_dibayar: t.nominal_tagihan, // bayar full
+                    nominal_dibayar: t.nominal_dibayar + bayarSekarang, // Kumulatif cicilan
                     tanggal_bayar: payDate,
-                    status: payStatus,
+                    status: payStatus, // Backend ignores this and auto-calculates if less than nominal
                     catatan: payNote
                 });
             }
@@ -216,11 +223,12 @@ export default function ManajemenIuranPage() {
         // Payload dari Custom Cart (Prepayment)
         for (const i of Array.from(checkedCustom)) {
             const c = customCart[i];
+            const bayarSekarang = customPayAmounts[i] || c.nominal;
             payloads.push({
                 student_id: selectedStudent.student_id,
                 fee_definition_id: c.fee_id,
                 periode_label: c.periode,
-                nominal_dibayar: c.nominal, 
+                nominal_dibayar: bayarSekarang, 
                 tanggal_bayar: payDate,
                 status: payStatus,
                 catatan: payNote
@@ -241,6 +249,8 @@ export default function ManajemenIuranPage() {
         setCheckedTagihan(new Set());
         setCheckedCustom(new Set());
         setCustomCart([]);
+        setPayAmounts({});
+        setCustomPayAmounts({});
         setPayNote("");
     };
 
@@ -263,14 +273,26 @@ export default function ManajemenIuranPage() {
         
         // Auto check the newly added item
         const newChecked = new Set(checkedCustom);
-        newChecked.add(newCartList.length - 1);
+        const newIndex = newCartList.length - 1;
+        newChecked.add(newIndex);
         setCheckedCustom(newChecked);
+        
+        // Default amount is full
+        setCustomPayAmounts(prev => ({ ...prev, [newIndex]: fee.nominal }));
     };
 
     // Hitung Total
     let totalChecked = 0;
-    tagihanList.forEach(t => { if (checkedTagihan.has(t.payment_id)) totalChecked += t.sisa_tagihan; });
-    customCart.forEach((c, i) => { if (checkedCustom.has(i)) totalChecked += c.nominal; });
+    tagihanList.forEach(t => { 
+        if (checkedTagihan.has(t.payment_id)) {
+            totalChecked += (payAmounts[t.payment_id] !== undefined ? payAmounts[t.payment_id] : t.sisa_tagihan);
+        }
+    });
+    customCart.forEach((c, i) => { 
+        if (checkedCustom.has(i)) {
+            totalChecked += (customPayAmounts[i] !== undefined ? customPayAmounts[i] : c.nominal);
+        }
+    });
 
     // ==== TAB 3: GENERATE MASSAL ====
     const handleGenerate = async () => {
@@ -531,23 +553,50 @@ export default function ManajemenIuranPage() {
                                         {tagihanList.map(t => {
                                             const chk = checkedTagihan.has(t.payment_id);
                                             return (
-                                                <label key={t.payment_id} className={`flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition select-none ${chk ? "bg-emerald-50 border-emerald-400 ring-1 ring-emerald-200" : "bg-white border-red-200 hover:bg-gray-50"}`}>
-                                                    <input type="checkbox" checked={chk} onChange={() => {
-                                                        const s = new Set(checkedTagihan);
-                                                        chk ? s.delete(t.payment_id) : s.add(t.payment_id);
-                                                        setCheckedTagihan(s);
-                                                    }} className="w-5 h-5 accent-emerald-600 rounded" />
-                                                    <div className="flex-1">
-                                                        <p className="font-bold text-gray-900 text-base">{t.fee_definition.nama_iuran}</p>
-                                                        <div className="flex items-center gap-2 mt-1">
-                                                            <span className="text-xs bg-red-100 text-red-700 font-bold px-2 py-0.5 rounded">{t.status.replace("_", " ")}</span>
-                                                            <span className="text-xs text-gray-500 font-medium">Periode: {t.periode_label}</span>
+                                                <div key={t.payment_id} className={`p-4 rounded-xl border transition ${chk ? "bg-emerald-50 border-emerald-400 ring-1 ring-emerald-200" : "bg-white border-red-200 hover:bg-gray-50"}`}>
+                                                    <label className="flex items-center gap-4 cursor-pointer select-none">
+                                                        <input type="checkbox" checked={chk} onChange={() => {
+                                                            const s = new Set(checkedTagihan);
+                                                            if (chk) {
+                                                                s.delete(t.payment_id);
+                                                                // Hapus dari state cicilan
+                                                                setPayAmounts(prev => { const n = {...prev}; delete n[t.payment_id]; return n; });
+                                                            } else {
+                                                                s.add(t.payment_id);
+                                                                // Default ke sisa tagihan penuh
+                                                                setPayAmounts(prev => ({ ...prev, [t.payment_id]: t.sisa_tagihan }));
+                                                            }
+                                                            setCheckedTagihan(s);
+                                                        }} className="w-5 h-5 accent-emerald-600 rounded" />
+                                                        <div className="flex-1">
+                                                            <p className="font-bold text-gray-900 text-base">{t.fee_definition.nama_iuran}</p>
+                                                            <div className="flex items-center gap-2 mt-1">
+                                                                <span className="text-xs bg-red-100 text-red-700 font-bold px-2 py-0.5 rounded">{t.status.replace("_", " ")}</span>
+                                                                <span className="text-xs text-gray-500 font-medium">Periode: {t.periode_label}</span>
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <span className="font-black text-red-600 text-lg">Rp {t.sisa_tagihan.toLocaleString("id-ID")}</span>
-                                                    </div>
-                                                </label>
+                                                        <div className="text-right flex flex-col items-end gap-1">
+                                                            <span className="font-black text-red-600 text-lg">Sisa: Rp {t.sisa_tagihan.toLocaleString("id-ID")}</span>
+                                                            {chk && (
+                                                                <div className="flex items-center gap-2 mt-2" onClick={(e) => e.preventDefault()}>
+                                                                    <span className="text-xs font-bold text-gray-500 uppercase">Bayar:</span>
+                                                                    <input 
+                                                                        type="number" 
+                                                                        min="0"
+                                                                        max={t.sisa_tagihan}
+                                                                        value={payAmounts[t.payment_id] !== undefined ? payAmounts[t.payment_id] : t.sisa_tagihan}
+                                                                        onChange={(e) => {
+                                                                            let val = parseInt(e.target.value) || 0;
+                                                                            if (val > t.sisa_tagihan) val = t.sisa_tagihan;
+                                                                            setPayAmounts(prev => ({ ...prev, [t.payment_id]: val }));
+                                                                        }}
+                                                                        className="w-32 p-1.5 border border-emerald-300 rounded bg-white text-right font-bold text-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                                                    />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </label>
+                                                </div>
                                             );
                                         })}
                                     </div>
@@ -577,16 +626,47 @@ export default function ManajemenIuranPage() {
                                                 const fee = activeFees.find(f => f.id === c.fee_id);
                                                 const chk = checkedCustom.has(i);
                                                 return (
-                                                    <label key={i} className={`flex justify-between items-center p-3 border rounded-xl cursor-pointer ${chk ? "bg-blue-50 border-blue-400" : "bg-white border-gray-200"}`}>
-                                                        <div className="flex items-center gap-3">
-                                                            <input type="checkbox" checked={chk} onChange={() => { const s = new Set(checkedCustom); chk ? s.delete(i) : s.add(i); setCheckedCustom(s); }} className="w-4 h-4 accent-blue-600" />
-                                                            <div>
-                                                                <p className="font-bold text-blue-900 text-sm">{fee?.nama_iuran}</p>
-                                                                <p className="text-xs text-blue-600">Periode: {c.periode}</p>
+                                                    <div key={i} className={`p-3 border rounded-xl transition ${chk ? "bg-blue-50 border-blue-400" : "bg-white border-gray-200"}`}>
+                                                        <label className="flex justify-between items-center cursor-pointer">
+                                                            <div className="flex items-center gap-3">
+                                                                <input type="checkbox" checked={chk} onChange={() => { 
+                                                                    const s = new Set(checkedCustom); 
+                                                                    if (chk) {
+                                                                        s.delete(i);
+                                                                        setCustomPayAmounts(prev => { const n = {...prev}; delete n[i]; return n; });
+                                                                    } else {
+                                                                        s.add(i);
+                                                                        setCustomPayAmounts(prev => ({...prev, [i]: c.nominal}));
+                                                                    }
+                                                                    setCheckedCustom(s); 
+                                                                }} className="w-4 h-4 accent-blue-600" />
+                                                                <div>
+                                                                    <p className="font-bold text-blue-900 text-sm">{fee?.nama_iuran}</p>
+                                                                    <p className="text-xs text-blue-600">Periode: {c.periode}</p>
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                        <span className="font-bold text-blue-700">Rp {c.nominal.toLocaleString("id-ID")}</span>
-                                                    </label>
+                                                            <div className="flex flex-col items-end gap-1">
+                                                                <span className="font-bold text-blue-700 text-sm">Tarif: Rp {c.nominal.toLocaleString("id-ID")}</span>
+                                                                {chk && (
+                                                                    <div className="flex items-center gap-2 mt-1" onClick={(e) => e.preventDefault()}>
+                                                                        <span className="text-[10px] font-bold text-gray-500 uppercase">Bayar:</span>
+                                                                        <input 
+                                                                            type="number" 
+                                                                            min="0"
+                                                                            max={c.nominal}
+                                                                            value={customPayAmounts[i] !== undefined ? customPayAmounts[i] : c.nominal}
+                                                                            onChange={(e) => {
+                                                                                let val = parseInt(e.target.value) || 0;
+                                                                                if (val > c.nominal) val = c.nominal;
+                                                                                setCustomPayAmounts(prev => ({ ...prev, [i]: val }));
+                                                                            }}
+                                                                            className="w-24 p-1 border border-blue-300 rounded bg-white text-right font-bold text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                                                                        />
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </label>
+                                                    </div>
                                                 )
                                             })}
                                         </div>
