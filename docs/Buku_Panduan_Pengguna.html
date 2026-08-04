@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Buku Panduan Pengguna - Sistem Pesantren Nurul Ihsan</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    @page {
+      size: A4;
+      margin: 20mm 20mm 20mm 20mm;
+      @bottom-right {
+        content: "Halaman " counter(page);
+        font-family: 'Inter', sans-serif;
+        font-size: 9pt;
+        color: #64748b;
+      }
+      @bottom-left {
+        content: "Sistem Manajemen Pesantren Nurul Ihsan";
+        font-family: 'Inter', sans-serif;
+        font-size: 9pt;
+        color: #64748b;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: #1e293b;
+      line-height: 1.6;
+      font-size: 11pt;
+      margin: 0;
+      padding: 0;
+      background: #ffffff;
+    }
+
+    /* Cover Page */
+    .cover-page {
+      height: 95vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      page-break-after: always;
+      border: 2px solid #0f172a;
+      padding: 40px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      position: relative;
+    }
+
+    .cover-logo {
+      width: 100px;
+      height: 100px;
+      background: #0f172a;
+      color: #ffffff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36pt;
+      font-weight: bold;
+      margin-bottom: 30px;
+      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+    }
+
+    .cover-title {
+      font-size: 28pt;
+      font-weight: 700;
+      color: #0f172a;
+      margin: 0 0 15px 0;
+      line-height: 1.2;
+    }
+
+    .cover-subtitle {
+      font-size: 16pt;
+      font-weight: 500;
+      color: #3b82f6;
+      margin: 0 0 30px 0;
+    }
+
+    .cover-desc {
+      font-size: 12pt;
+      color: #64748b;
+      max-width: 500px;
+      margin-bottom: 60px;
+    }
+
+    .cover-footer {
+      position: absolute;
+      bottom: 40px;
+      font-size: 10pt;
+      color: #94a3b8;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 15px;
+      width: 80%;
+    }
+
+    /* Chapter Formatting */
+    .chapter {
+      page-break-before: always;
+      padding-top: 10px;
+    }
+
+    .chapter:first-of-type {
+      page-break-before: auto;
+    }
+
+    h1 {
+      font-size: 20pt;
+      color: #0f172a;
+      border-bottom: 2px solid #3b82f6;
+      padding-bottom: 8px;
+      margin-top: 0;
+      margin-bottom: 20px;
+    }
+
+    h2 {
+      font-size: 14pt;
+      color: #1e293b;
+      margin-top: 25px;
+      margin-bottom: 12px;
+      background: #f1f5f9;
+      padding: 8px 12px;
+      border-left: 4px solid #3b82f6;
+      border-radius: 0 4px 4px 0;
+    }
+
+    h3 {
+      font-size: 12pt;
+      color: #334155;
+      margin-top: 18px;
+      margin-bottom: 8px;
+    }
+
+    p, li {
+      margin-bottom: 8px;
+      color: #334155;
+    }
+
+    ul, ol {
+      padding-left: 24px;
+      margin-top: 5px;
+      margin-bottom: 15px;
+    }
+
+    li {
+      margin-bottom: 6px;
+    }
+
+    /* Callouts / Alert Boxes */
+    .callout {
+      background: #eff6ff;
+      border-left: 4px solid #3b82f6;
+      padding: 12px 16px;
+      margin: 15px 0;
+      border-radius: 0 6px 6px 0;
+      font-size: 10.5pt;
+    }
+
+    .callout-title {
+      font-weight: 600;
+      color: #1d4ed8;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .callout.warning {
+      background: #fef2f2;
+      border-left-color: #ef4444;
+    }
+    .callout.warning .callout-title {
+      color: #b91c1c;
+    }
+
+    .callout.success {
+      background: #f0fdf4;
+      border-left-color: #22c55e;
+    }
+    .callout.success .callout-title {
+      color: #15803d;
+    }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 15px 0;
+      font-size: 10pt;
+    }
+
+    th, td {
+      border: 1px solid #cbd5e1;
+      padding: 10px 12px;
+      text-align: left;
+    }
+
+    th {
+      background: #f8fafc;
+      color: #0f172a;
+      font-weight: 600;
+    }
+
+    tr:nth-child(even) {
+      background: #f8fafc;
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 8.5pt;
+      font-weight: 600;
+      background: #e2e8f0;
+      color: #334155;
+    }
+    .badge-blue { background: #dbeafe; color: #1e40af; }
+    .badge-green { background: #dcfce7; color: #166534; }
+    .badge-purple { background: #f3e8ff; color: #6b21a8; }
+    .badge-orange { background: #ffedd5; color: #9a3412; }
+
+    /* TOC */
+    .toc {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      padding: 20px 30px;
+      border-radius: 8px;
+      margin-bottom: 30px;
+    }
+    .toc h2 {
+      background: transparent;
+      border: none;
+      padding: 0;
+      margin-top: 0;
+      color: #0f172a;
+      font-size: 16pt;
+    }
+    .toc ul {
+      list-style-type: none;
+      padding-left: 0;
+    }
+    .toc li {
+      margin-bottom: 10px;
+      border-bottom: 1px dashed #cbd5e1;
+      padding-bottom: 4px;
+    }
+    .toc a {
+      text-decoration: none;
+      color: #1e293b;
+      font-weight: 500;
+      display: flex;
+      justify-content: space-between;
+    }
+    .toc a span {
+      color: #3b82f6;
+    }
+
+    @media print {
+      body {
+        background: transparent;
+      }
+      .no-print {
+        display: none;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- COVER PAGE -->
+  <div class="cover-page">
+    <div class="cover-logo">NI</div>
+    <div class="cover-title">BUKU PANDUAN PENGGUNA<br>(USER MANUAL)</div>
+    <div class="cover-subtitle">Sistem Manajemen & Absensi Terintegrasi</div>
+    <div class="cover-desc">
+      Panduan lengkap operasional sistem arsitektur Local-First & Cloud Sync untuk Guru, Bendahara, Pengurus Asrama, Administrator, dan Wali Santri.
+    </div>
+    <div class="cover-footer">
+      <strong>PONDOK PESANTREN NURUL IHSAN KARANGMANGU</strong><br>
+      Dokumen Resmi Edisi 2026 • Siap Cetak (Print-Ready PDF)
+    </div>
+  </div>
+
+  <!-- TABLE OF CONTENTS -->
+  <div class="toc chapter">
+    <h2>Daftar Isi Panduan</h2>
+    <ul>
+      <li><a href="#bab1">1. Pengantar & Arsitektur Sistem <span>Bab 1</span></a></li>
+      <li><a href="#bab2">2. Panduan Guru / Ustadz (Akademik & Tahfidz) <span>Bab 2</span></a></li>
+      <li><a href="#bab3">3. Panduan Bendahara (Keuangan & E-Money Kantin) <span>Bab 3</span></a></li>
+      <li><a href="#bab4">4. Panduan Pengurus Asrama & Klinik Kesehatan <span>Bab 4</span></a></li>
+      <li><a href="#bab5">5. Panduan Administrator IT & Hardware RFID <span>Bab 5</span></a></li>
+      <li><a href="#bab6">6. Panduan Wali Santri (Portal Online PWA) <span>Bab 6</span></a></li>
+    </ul>
+  </div>
+
+  <!-- BAB 1 -->
+  <div class="chapter" id="bab1">
+    <h1>1. Pengantar & Arsitektur Sistem</h1>
+    <p>
+      Sistem Manajemen Pondok Pesantren Nurul Ihsan dibangun menggunakan teknologi mutakhir dengan arsitektur <strong>Local-First & Cloud Sync</strong>. Pendekatan ini menjamin seluruh operasional harian pesantren berjalan cepat (<em>zero-latency</em>) tanpa tergantung pada kestabilan jaringan internet.
+    </p>
+
+    <div class="callout">
+      <div class="callout-title">💡 Prinsip Kerja Utama</div>
+      <p>
+        <strong>Server Lokal Pesantren:</strong> Seluruh transaksi tap kartu RFID, absensi shalat, jajan di kantin, dan jatah makan diproses langsung oleh server lokal (SQLite & FastAPI) dalam hitungan milidetik.<br>
+        <strong>Sinkronisasi Cloud:</strong> Ketika internet tersedia, sistem secara otomatis mengirimkan log data ke Cloud (PostgreSQL & Next.js) agar dapat dipantau oleh Wali Santri dari rumah.
+      </p>
+    </div>
+
+    <h2>Hak Akses Pengguna (Role System)</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Role / Peran</th>
+          <th>Area Akses</th>
+          <th>Fungsi Utama</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="badge badge-purple">ADMIN</span></td>
+          <td>Seluruh Modul & Pengaturan</td>
+          <td>Pendaftaran santri, binding kartu RFID, manajemen akun, & sinkronisasi.</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-blue">USTADZ</span></td>
+          <td>Modul Akademik, Tahfidz, & Absensi</td>
+          <td>Mencatat setoran hafalan Quran, monitoring shalat, & absensi kelas.</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-green">BENDAHARA</span></td>
+          <td>Modul Keuangan & E-Money</td>
+          <td>Top-up saldo wallet santri, pembayaran syahriyah/SPP, & rekap kas.</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-orange">WALI</span></td>
+          <td>Portal Wali Online (HP)</td>
+          <td>Memantau kehadiran anak, hafalan, saldo jajan, dan bayar tagihan.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- BAB 2 -->
+  <div class="chapter" id="bab2">
+    <h1>2. Panduan Guru / Ustadz</h1>
+    <p>Modul ini dirancang agar mudah dan cepat digunakan oleh Ustadz/Musyrif saat sesi simaan hafalan maupun pemeriksaan kehadiran santri.</p>
+
+    <h2>A. Mencatat Jurnal Hafalan (Tahfidz)</h2>
+    <ol>
+      <li>Buka menu <strong>Tahfidz</strong> pada panel navigasi sebelah kiri.</li>
+      <li>Pilih filter <strong>Kelas</strong> atau <strong>Asrama</strong> santri yang sedang disimak.</li>
+      <li>Klik pada nama santri yang bersangkutan untuk membuka form setoran.</li>
+      <li>Isi rincian capaian hafalan:
+        <ul>
+          <li><strong>Surah & Rentang Ayat:</strong> (misal: <em>Al-Mulk, Ayat 1 - 15</em>).</li>
+          <li><strong>Nilai / Grade:</strong> Pilih nilai (Mumtaz / A, Jayyid Jiddan / B, atau Jayyid / C).</li>
+          <li><strong>Catatan Evaluasi:</strong> Masukkan pesan pembinaan (misal: <em>Perbaiki panjang pendek tajwid dan makhroj huruf kha</em>).</li>
+        </ul>
+      </li>
+      <li>Klik tombol <strong>Simpan</strong>. Data tersimpan secara lokal dan siap disinkronkan ke orang tua.</li>
+    </ol>
+
+    <h2>B. Memantau & Koreksi Absensi Kehadiran</h2>
+    <ol>
+      <li>Buka menu <strong>Absensi</strong>.</li>
+      <li>Anda akan melihat daftar hadir santri hasil bacaan kartu RFID di gerbang, kelas, atau masjid.</li>
+      <li>Jika ada santri yang lupa membawa kartu atau berhalangan hadir, klik tombol <strong>Edit Status</strong> pada baris nama santri tersebut.</li>
+      <li>Ubah status menjadi <span class="badge badge-green">Hadir</span>, <span class="badge badge-blue">Sakit</span>, <span class="badge badge-orange">Izin</span>, atau <span class="badge badge-purple">Alpa</span>.</li>
+    </ol>
+
+    <h2>C. Mencatat Kedisiplinan & Prestasi</h2>
+    <ol>
+      <li>Buka menu <strong>Kedisiplinan</strong> di dasbor Anda.</li>
+      <li>Klik tombol <strong>+ Tambah Catatan</strong>.</li>
+      <li>Pilih nama santri, tentukan jenis catatan (<strong>Pelanggaran</strong> atau <strong>Prestasi</strong>), masukkan jumlah poin, serta kronologi kejadian.</li>
+    </ol>
+  </div>
+
+  <!-- BAB 3 -->
+  <div class="chapter" id="bab3">
+    <h1>3. Panduan Bendahara & Keuangan</h1>
+    <p>Modul keuangan mengintegrasikan pembayaran Syahriyah bulanan dan sistem dompet digital (E-Money) lokal untuk kantin dan koperasi pondok.</p>
+
+    <h2>A. Manajemen SPP & Syahriyah Bulanan</h2>
+    <ol>
+      <li>Buka menu <strong>Keuangan</strong> $\rightarrow$ pilih tab <strong>Tagihan / Syahriyah</strong>.</li>
+      <li>Untuk membuat tagihan baru secara masal, klik tombol <strong>Generate Tagihan</strong>. Tentukan bulan, tahun, dan nominal SPP, lalu terapkan untuk seluruh santri atau per kelas.</li>
+      <li><strong>Penerimaan Pembayaran Tunai:</strong>
+        <ul>
+          <li>Cari nama santri di kolom pencarian.</li>
+          <li>Klik tombol <strong>Verifikasi Pembayaran / Bayar</strong> pada tagihan yang dimaksud.</li>
+          <li>Status tagihan otomatis berubah menjadi <span class="badge badge-green">LUNAS (PAID)</span> dan tercatat dalam buku kas.</li>
+        </ul>
+      </li>
+    </ol>
+
+    <h2>B. Top-Up Saldo E-Money Kantin (Cashless)</h2>
+    <p>Santri tidak perlu membawa uang tunai ke kantin; cukup menggunakan kartu RFID/NFC yang telah diisi saldo.</p>
+    <div class="callout success">
+      <div class="callout-title">💰 Langkah Top-Up Saldo Dompet Santri</div>
+      <ol style="margin-bottom: 0;">
+        <li>Buka menu <strong>Keuangan</strong> $\rightarrow$ pilih tab <strong>Top-Up Wallet / E-Money</strong>.</li>
+        <li>Tempelkan kartu RFID santri pada reader di meja bendahara, atau ketik nama/NIS santri.</li>
+        <li>Masukkan nominal uang tunai yang disetorkan (misal: <code>Rp 50.000</code> atau <code>Rp 100.000</code>).</li>
+        <li>Klik tombol <strong>Konfirmasi Top-Up</strong>. Saldo dompet digital santri bertambah detik itu juga.</li>
+      </ol>
+    </div>
+
+    <h2>C. Laporan Arus Kas & Rekap Transaksi</h2>
+    <ol>
+      <li>Buka menu <strong>Laporan Keuangan</strong> atau tab <strong>Laporan</strong>.</li>
+      <li>Filter laporan berdasarkan periode: <em>Hari Ini</em>, <em>Minggu Ini</em>, atau <em>Bulan Ini</em>.</li>
+      <li>Anda dapat melihat total perputaran uang kantin, pemasukan SPP, serta mengunduhnya (Export Excel/PDF) untuk laporan rekapitulasi ke pengasuh pondok.</li>
+    </ol>
+  </div>
+
+  <!-- BAB 4 -->
+  <div class="chapter" id="bab4">
+    <h1>4. Panduan Pengurus Asrama & Kesehatan</h1>
+    <p>Pengurus asrama bertanggung jawab memantau kedisiplinan ibadah harian serta mencatat kondisi medis dasar santri di klinik/UKS.</p>
+
+    <h2>A. Pencatatan Rekam Medis Santri (Klinik / UKS)</h2>
+    <p>Ketika ada santri yang mengeluh sakit atau berobat ke fasilitas kesehatan pesantren:</p>
+    <ol>
+      <li>Buka menu <strong>Kesehatan</strong> di dasbor pengurus.</li>
+      <li>Klik tombol <strong>+ Tambah Rekam Medis</strong>.</li>
+      <li>Cari dan pilih nama santri yang sakit.</li>
+      <li>Lengkapi formulir pemeriksaan medis:
+        <ul>
+          <li><strong>Keluhan:</strong> (misal: <em>Demam tinggi, badan lemas sejak ba'da maghrib</em>).</li>
+          <li><strong>Diagnosis Sementara:</strong> (misal: <em>Gejala Flu / Demam biasa</em>).</li>
+          <li><strong>Tindakan & Obat:</strong> (misal: <em>Pemberian Paracetamol 500mg, Istirahat di kamar UKS</em>).</li>
+        </ul>
+      </li>
+      <li>Klik <strong>Simpan</strong>. Data ini sangat penting karena akan muncul di HP Wali Santri sehingga orang tua mengetahui bahwa anaknya sedang dirawat dengan baik.</li>
+    </ol>
+
+    <h2>B. Monitoring Ibadah Yaumiyyah & Shalat Berjamaah</h2>
+    <ol>
+      <li>Buka menu <strong>Monitor</strong> atau <strong>Ranking</strong>.</li>
+      <li>Pantau grafik persentase kehadiran shalat berjamaah 5 waktu dan ibadah sunnah (Dhuha/Tahajud).</li>
+      <li>Anda dapat mengecek santri mana saja yang paling rajin maupun yang membutuhkan pembinaan khusus.</li>
+    </ol>
+  </div>
+
+  <!-- BAB 5 -->
+  <div class="chapter" id="bab5">
+    <h1>5. Panduan Administrator IT & RFID</h1>
+    <p>Administrator IT memiliki hak akses penuh untuk mengelola infrastruktur data, perangkat keras RFID, dan akun pengguna sistem.</p>
+
+    <h2>A. Pendaftaran Santri & Binding Kartu RFID</h2>
+    <ol>
+      <li>Buka menu <strong>Santri</strong> $\rightarrow$ klik <strong>+ Tambah Santri</strong> untuk memasukkan data biodata baru (NIS, Nama, Kelas, Asrama).</li>
+      <li><strong>Proses Binding (Registrasi) Kartu RFID/NFC:</strong>
+        <ul>
+          <li>Buka profil santri yang belum memiliki kartu.</li>
+          <li>Klik tombol <strong>Daftarkan Kartu RFID</strong>.</li>
+          <li>Tempelkan kartu putih atau gantungan kunci (keyfob) ke alat reader ESP32/PN532/RC522 yang terhubung ke server.</li>
+          <li>Alat akan berbunyi bip pendek, dan <strong>10-digit Nomor UID</strong> kartu akan otomatis muncul di kolom input.</li>
+          <li>Klik <strong>Simpan Binding</strong>. Kartu resmi terhubung dengan dompet dan absensi santri tersebut.</li>
+        </ul>
+      </li>
+    </ol>
+
+    <div class="callout warning">
+      <div class="callout-title">⚠️ Penanganan Kartu Hilang</div>
+      <p>Jika kartu santri hilang, segera buka profil santri tersebut, klik tombol <strong>Unbind / Blokir Kartu Lama</strong>, lalu daftarkan kartu baru. Saldo E-Money santri tetap aman dan otomatis berpindah ke kartu yang baru.</p>
+    </div>
+
+    <h2>B. Sinkronisasi Data Lokal ke Cloud (Push/Pull Sync)</h2>
+    <p>Sistem melakukan sinkronisasi otomatis di latar belakang. Namun, Admin dapat melakukan sinkronisasi manual jika dibutuhkan:</p>
+    <ol>
+      <li>Periksa indikator koneksi internet di pojok kanan atas dasbor (pastikan berstatus <span class="badge badge-green">Online / Terhubung</span>).</li>
+      <li>Klik tombol <strong>Sync Sekarang</strong> atau buka menu pengaturan sinkronisasi.</li>
+      <li>Sistem akan menaikkan log absensi dan transaksi baru ke Cloud (Push), serta menarik data konfirmasi top-up/pembayaran dari portal wali (Pull).</li>
+    </ol>
+  </div>
+
+  <!-- BAB 6 -->
+  <div class="chapter" id="bab6">
+    <h1>6. Panduan Wali Santri (Portal Online PWA)</h1>
+    <p>Portal Wali Santri dirancang sangat ringan dan dapat diakses dari browser HP tanpa perlu mengunduh aplikasi dari Play Store / App Store.</p>
+
+    <h2>A. Cara Login ke Portal Wali</h2>
+    <ol>
+      <li>Buka link browser web yang diberikan oleh sekolah (misal: <code>https://portal.nurulihsan.id</code>).</li>
+      <li>Masukkan <strong>Nomor Handphone (WhatsApp)</strong> yang terdaftar atau <strong>Username/PIN</strong> dari pondok.</li>
+      <li>Tekan tombol <strong>Masuk / Login</strong>.</li>
+    </ol>
+
+    <h2>B. Fitur Utama di Layar HP Wali Santri</h2>
+    <ul>
+      <li><strong>Pantauan Absensi & Kehadiran:</strong> Melihat jam berapa anak masuk kelas, mengikuti shalat subuh berjamaah, atau pulang ke asrama.</li>
+      <li><strong>Cek Saldo & Riwayat Jajan:</strong> Memantau sisa uang saku anak secara transparan serta melihat barang apa saja yang dibeli di koperasi/kantin pondok.</li>
+      <li><strong>Jurnal Tahfidz Al-Quran:</strong> Melihat perkembangan jumlah hafalan surah/ayat terbaru beserta nilai dan catatan pembinaan dari Ustadz.</li>
+      <li><strong>Tagihan & Top-Up Online:</strong> Mengecek rincian syahriyah bulanan dan melakukan pembayaran atau top-up uang saku melalui transfer bank / payment gateway yang tersedia.</li>
+    </ul>
+
+    <div style="margin-top: 50px; text-align: center; border-top: 2px solid #e2e8f0; padding-top: 20px; color: #64748b; font-size: 10pt;">
+      <em>Buku Panduan Pengguna Sistem Manajemen Pondok Pesantren Nurul Ihsan</em><br>
+      Dikembangkan dengan Arsitektur Local-First & Cloud Sync • Edisi Tahun 2026
+    </div>
+  </div>
+
+</body>
+</html>

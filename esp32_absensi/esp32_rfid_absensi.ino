@@ -54,12 +54,37 @@ const char* DEVICE_ID = "ESP32-MASJID-01";
 #define PN532_SS   5
 #define PN532_RST  4
 
+// Pin Buzzer
+#define BUZZER_PIN 15
+
 Adafruit_PN532 nfc(PN532_SCK, PN532_MISO, PN532_MOSI, PN532_SS);
 LiquidCrystal_I2C lcd(0x27, 16, 2);  // ganti 0x27 ke 0x3F jika LCD tidak menyala
+
+// Fungsi Buzzer Berhasil (2x bunyi pendek)
+void beepBerhasil() {
+  digitalWrite(BUZZER_PIN, HIGH);
+  delay(100);
+  digitalWrite(BUZZER_PIN, LOW);
+  delay(100);
+  digitalWrite(BUZZER_PIN, HIGH);
+  delay(100);
+  digitalWrite(BUZZER_PIN, LOW);
+}
+
+// Fungsi Buzzer Gagal / Sudah Absen (1x bunyi panjang)
+void beepGagal() {
+  digitalWrite(BUZZER_PIN, HIGH);
+  delay(600);
+  digitalWrite(BUZZER_PIN, LOW);
+}
 
 void setup() {
   Serial.begin(115200);
   Wire.begin(21, 22);   // SDA=21, SCL=22
+
+  // Init Buzzer
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, LOW);
 
   // Init LCD
   lcd.init();
@@ -200,18 +225,21 @@ void kirimAbsensi(String rfidUid) {
         lcd.setCursor(0, 1);
         lcd.print(namaStr.substring(0, 16));
         Serial.println("Double tap: " + namaStr);
+        beepGagal();
       } else if (success) {
         lcd.setCursor(0, 0);
         lcd.print(namaStr.substring(0, 16));
         lcd.setCursor(0, 1);
         lcd.print(String(waktu) + " HADIR");
         Serial.println("OK: " + namaStr + " - " + String(sesi));
+        beepBerhasil();
       } else {
         lcd.setCursor(0, 0);
         lcd.print("KARTU TDK ADA!");
         lcd.setCursor(0, 1);
         lcd.print(msgStr.substring(0, 16));
         Serial.println("Gagal: " + msgStr);
+        beepGagal();
       }
     } else {
       lcd.print("Parse Error!");
@@ -222,6 +250,7 @@ void kirimAbsensi(String rfidUid) {
     lcd.setCursor(0, 1);
     lcd.print("Code: " + String(httpCode));
     Serial.println("HTTP Error: " + String(httpCode));
+    beepGagal();
   }
 
   http.end();

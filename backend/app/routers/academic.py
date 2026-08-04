@@ -119,7 +119,7 @@ def get_student_violations(skip: int = 0, limit: int = 100, db: Session = Depend
 def create_student_violation(
     violation: schemas.StudentViolationCreate, 
     db: Session = Depends(get_db),
-    user_role: models.RoleEnum = Depends(require_role([models.RoleEnum.PENGURUS_SANTRI]))
+    user_role: models.RoleEnum = Depends(require_role([models.RoleEnum.PENGURUS_SANTRI, models.RoleEnum.GURU_BP, models.RoleEnum.SUPER_ADMIN]))
 ):
     db_item = models.StudentViolation(**violation.model_dump())
     

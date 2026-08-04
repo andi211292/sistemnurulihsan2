@@ -74,16 +74,13 @@ export default function KedisiplinanPage() {
         const savedRole = localStorage.getItem("user_role");
         if (savedRole) {
             setUserRole(savedRole);
-            if (savedRole === "PENGURUS_SANTRI") {
-                setActiveTab("violation");
-            } else if (savedRole === "GURU_BP" || savedRole === "PENGURUS_KEAMANAN") {
+            if (savedRole === "GURU_BP" || savedRole === "PENGURUS_KEAMANAN") {
                 setActiveTab("leave");
-                // Set default reason for Keamanan to avoid the default "SAKIT" which is not allowed for them
                 if (savedRole === "PENGURUS_KEAMANAN") setLeaveForm(f => ({ ...f, reason: "PULANG" }));
+            } else {
+                setActiveTab("violation");
             }
         }
-
-        // Need to call fetchData after deciding the activeTab based on role, so we set a flag or just let the dependency handle it. This works since activeTab is a dependency.
     }, []);
 
     useEffect(() => {
@@ -160,7 +157,7 @@ export default function KedisiplinanPage() {
             </div>
 
             <div className="flex space-x-1 border-b border-gray-200">
-                {userRole !== "GURU_BP" && userRole !== "PENGURUS_KEAMANAN" && (
+                {userRole !== "PENGURUS_KEAMANAN" && (
                     <button
                         onClick={() => setActiveTab("violation")}
                         className={`py-3 px-6 text-sm font-medium border-b-2 transition-colors ${activeTab === "violation" ? "border-sky-500 text-sky-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}
@@ -168,7 +165,7 @@ export default function KedisiplinanPage() {
                         Catat Pelanggaran
                     </button>
                 )}
-                {userRole !== "PENGURUS_SANTRI" && (
+                {(userRole === "SUPER_ADMIN" || userRole === "GURU_BP" || userRole === "PENGURUS_KEAMANAN") && (
                     <button
                         onClick={() => setActiveTab("leave")}
                         className={`py-3 px-6 text-sm font-medium border-b-2 transition-colors ${activeTab === "leave" ? "border-emerald-500 text-emerald-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}
