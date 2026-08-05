@@ -66,7 +66,7 @@ def get_student_leaves(skip: int = 0, limit: int = 100, db: Session = Depends(ge
 def create_student_leave(
     leave: schemas.StudentLeaveCreate, 
     db: Session = Depends(get_db),
-    user_role: models.RoleEnum = Depends(require_role([models.RoleEnum.GURU_BP, models.RoleEnum.PENGURUS_KEAMANAN]))
+    user_role: models.RoleEnum = Depends(require_role([models.RoleEnum.GURU_BP, models.RoleEnum.PENGURUS_KEAMANAN, models.RoleEnum.PENGURUS_SANTRI]))
 ):
     # Authorization checks based on Role and Reason
     if user_role == models.RoleEnum.GURU_BP:
@@ -87,7 +87,7 @@ def create_student_leave(
 def mark_student_returned(
     leave_id: int, 
     db: Session = Depends(get_db),
-    user_role: models.RoleEnum = Depends(require_role([models.RoleEnum.GURU_BP, models.RoleEnum.PENGURUS_KEAMANAN]))
+    user_role: models.RoleEnum = Depends(require_role([models.RoleEnum.GURU_BP, models.RoleEnum.PENGURUS_KEAMANAN, models.RoleEnum.PENGURUS_SANTRI]))
 ):
     from datetime import datetime
     leave = db.query(models.StudentLeave).filter(models.StudentLeave.id == leave_id).first()

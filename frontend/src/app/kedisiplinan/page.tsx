@@ -165,7 +165,7 @@ export default function KedisiplinanPage() {
                         Catat Pelanggaran
                     </button>
                 )}
-                {(userRole === "SUPER_ADMIN" || userRole === "GURU_BP" || userRole === "PENGURUS_KEAMANAN") && (
+                {(userRole === "SUPER_ADMIN" || userRole === "GURU_BP" || userRole === "PENGURUS_KEAMANAN" || userRole === "PENGURUS_SANTRI") && (
                     <button
                         onClick={() => setActiveTab("leave")}
                         className={`py-3 px-6 text-sm font-medium border-b-2 transition-colors ${activeTab === "leave" ? "border-emerald-500 text-emerald-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}
@@ -318,13 +318,13 @@ export default function KedisiplinanPage() {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Alasan</label>
                                 <select value={leaveForm.reason} onChange={e => setLeaveForm({ ...leaveForm, reason: e.target.value })} className="w-full px-3 py-2 border rounded-lg bg-gray-50">
-                                    {(userRole === "SUPER_ADMIN" || userRole === "GURU_BP") && (
+                                    {(userRole === "SUPER_ADMIN" || userRole === "GURU_BP" || userRole === "PENGURUS_SANTRI") && (
                                         <>
                                             <option value="SAKIT">Sakit / Dirawat</option>
                                             <option value="IZIN">Izin Keperluan Sekolah/Keluarga</option>
                                         </>
                                     )}
-                                    {(userRole === "SUPER_ADMIN" || userRole === "PENGURUS_KEAMANAN") && (
+                                    {(userRole === "SUPER_ADMIN" || userRole === "PENGURUS_KEAMANAN" || userRole === "PENGURUS_SANTRI") && (
                                         <>
                                             <option value="PULANG">Pulang Kampung</option>
                                             <option value="IZIN_KELUAR">Izin Keluar Sementara (Jam-jaman)</option>
